@@ -331,7 +331,7 @@ class SupplierPaymentViewSet(viewsets.ModelViewSet):
             return SupplierPayment.objects.filter(purchase_order__supplier=user)
         return SupplierPayment.objects.none()
 
-    @action(detail=False, methods=['get'], url_path='by-po/(?P<po_id>\d+)')
+    @action(detail=False, methods=['get'], url_path=r'by-po/(?P<po_id>[\w-]+)')
     def by_po(self, request, po_id=None):
         payments = self.get_queryset().filter(purchase_order_id=po_id)
         serializer = self.get_serializer(payments, many=True)
