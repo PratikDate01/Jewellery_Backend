@@ -37,13 +37,16 @@ class NegotiationRequestViewSet(viewsets.ModelViewSet):
     serializer_class = NegotiationRequestSerializer
 
     def get_queryset(self):
-        if self.request.user.role == 'WHOLESALER':
+        user = self.request.user
+        if not user.is_authenticated:
+            return NegotiationRequest.objects.none()
+        if user.role == 'WHOLESALER':
             try:
-                wholesaler_profile = self.request.user.wholesale_profile
+                wholesaler_profile = user.wholesale_profile
             except WholesaleProfile.DoesNotExist:
                 return NegotiationRequest.objects.none()
             return NegotiationRequest.objects.filter(wholesaler=wholesaler_profile).order_by('-created_at')
-        elif self.request.user.role == 'ADMIN':
+        elif user.role == 'ADMIN':
             return NegotiationRequest.objects.all().order_by('-created_at')
         return NegotiationRequest.objects.none()
 

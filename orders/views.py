@@ -138,7 +138,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     def update_status(self, request, pk=None):
         order = self.get_object()
         
-        if request.user.role != 'ADMIN' and request.user != order.user:
+        if not request.user.is_authenticated or (request.user.role != 'ADMIN' and request.user != order.user):
             return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = UpdateOrderStatusSerializer(data=request.data)
@@ -174,7 +174,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     def update_tracking(self, request, pk=None):
         order = self.get_object()
         
-        if request.user.role != 'ADMIN':
+        if not request.user.is_authenticated or request.user.role != 'ADMIN':
             return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
         
         try:
@@ -234,7 +234,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     def approve_action(self, request, pk=None):
         order = self.get_object()
         
-        if request.user.role != 'ADMIN':
+        if not request.user.is_authenticated or request.user.role != 'ADMIN':
             return Response({"detail": "Only admins can approve actions"}, status=status.HTTP_403_FORBIDDEN)
         
         action_id = request.data.get('action_id')
@@ -266,7 +266,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         except Order.DoesNotExist:
             return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        if request.user.role != 'ADMIN' and request.user != order.user:
+        if not request.user.is_authenticated or (request.user.role != 'ADMIN' and request.user != order.user):
             return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
         
         events = order.timeline_events.all()

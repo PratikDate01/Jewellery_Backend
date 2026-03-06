@@ -35,9 +35,12 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        if self.request.user.role == 'ADMIN':
+        user = self.request.user
+        if not user.is_authenticated:
+            return SupplierProduct.objects.none()
+        if user.role == 'ADMIN':
             return SupplierProduct.objects.all().prefetch_related('images')
-        return SupplierProduct.objects.filter(supplier=self.request.user).prefetch_related('images')
+        return SupplierProduct.objects.filter(supplier=user).prefetch_related('images')
 
     def perform_create(self, serializer):
         serializer.save(supplier=self.request.user)
