@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from .models import Order, OrderItem, OrderStatusLog, OrderTracking, OrderTimelineEvent, OrderAction
 from products.serializers import ProductSerializer
+from accounts.fields import ObjectIdField
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     product_details = ProductSerializer(source='product', read_only=True)
 
     class Meta:
@@ -10,6 +12,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ('id', 'order', 'product', 'product_details', 'supplier', 'quantity', 'price', 'gst_amount', 'subtotal', 'status')
 
 class OrderStatusLogSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
     previous_status_display = serializers.CharField(source='get_previous_status_display', read_only=True)
     new_status_display = serializers.CharField(source='get_new_status_display', read_only=True)
@@ -20,6 +23,7 @@ class OrderStatusLogSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'previous_status', 'previous_status_display', 'new_status', 'new_status_display', 'changed_by_email', 'notes', 'created_at')
 
 class OrderTrackingSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
     class Meta:
@@ -28,6 +32,7 @@ class OrderTrackingSerializer(serializers.ModelSerializer):
         read_only_fields = ('tracking_number', 'created_at', 'last_updated')
 
 class OrderTimelineEventSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True, allow_null=True)
     event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
     
@@ -37,6 +42,7 @@ class OrderTimelineEventSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'event_type', 'event_type_display', 'title', 'description', 'user_email', 'location', 'created_at')
 
 class OrderActionSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     requested_by_email = serializers.EmailField(source='requested_by.email', read_only=True)
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True, allow_null=True)
     action_type_display = serializers.CharField(source='get_action_type_display', read_only=True)
@@ -48,6 +54,7 @@ class OrderActionSerializer(serializers.ModelSerializer):
         read_only_fields = ('requested_at', 'updated_at', 'completed_at')
 
 class OrderSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     
@@ -57,6 +64,7 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'order_number', 'user_email', 'status', 'payment_status', 'total_amount', 'tax_amount', 'net_amount', 'items', 'created_at')
 
 class OrderDetailSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     status_history = OrderStatusLogSerializer(many=True, read_only=True)
     tracking = OrderTrackingSerializer(read_only=True)
@@ -81,6 +89,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ('order_number', 'tracking_number', 'status', 'payment_status', 'created_at', 'updated_at')
 
 class OrderListSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     payment_status_display = serializers.CharField(source='get_payment_status_display', read_only=True)

@@ -2,8 +2,10 @@ from rest_framework import serializers
 from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, CustomerOrder, StockLedger, SupplierPayment
 from categories.models import Category
 from suppliers.models import Supplier
+from accounts.fields import ObjectIdField
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     image = serializers.SerializerMethodField()
 
     class Meta:
@@ -16,6 +18,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
         return None
 
 class SupplierProductSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
     
@@ -50,6 +53,7 @@ class SupplierProductSerializer(serializers.ModelSerializer):
         return product
 
 class ProductSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
     supplier_name = serializers.SerializerMethodField()
@@ -75,7 +79,7 @@ class ProductSerializer(serializers.ModelSerializer):
     
     # IDs of existing images to keep. If an ID is NOT in this list, it will be deleted.
     keep_images = serializers.ListField(
-        child=serializers.IntegerField(),
+        child=ObjectIdField(),
         write_only=True,
         required=False
     )
@@ -105,9 +109,9 @@ class ProductSerializer(serializers.ModelSerializer):
                     # keep_images might be sent as multiple keys or comma separated
                     val = data.getlist(key)
                     if len(val) == 1 and ',' in val[0]:
-                        internal_data[key] = [int(x.strip()) for x in val[0].split(',') if x.strip().isdigit()]
+                        internal_data[key] = [x.strip() for x in val[0].split(',') if x.strip()]
                     else:
-                        internal_data[key] = [int(x) for x in val if str(x).isdigit()]
+                        internal_data[key] = [x for x in val if x]
                 else:
                     internal_data[key] = data.get(key)
             
@@ -167,6 +171,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return instance
 
 class CategorySerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     subcategories = serializers.SerializerMethodField()
 
     class Meta:
@@ -180,6 +185,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     supplier_email = serializers.EmailField(source='supplier.email', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
@@ -199,6 +205,7 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
 
 
 class SupplierPaymentSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     purchase_order_id = serializers.PrimaryKeyRelatedField(
         queryset=PurchaseOrder.objects.all(), source='purchase_order', write_only=True
     )
@@ -210,6 +217,7 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
 
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     customer_email = serializers.EmailField(source='customer.email', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_image = serializers.SerializerMethodField(read_only=True)
@@ -229,6 +237,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
     supplier_email = serializers.SerializerMethodField()
@@ -259,6 +268,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         return obj.margin_percentage
 
 class StockLedgerSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     entry_type_display = serializers.CharField(source='get_entry_type_display', read_only=True)

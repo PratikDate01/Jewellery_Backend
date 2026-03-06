@@ -1,14 +1,17 @@
 from rest_framework import serializers
 from .models import WholesaleProfile, NegotiationRequest
 from products.serializers import ProductSerializer
+from accounts.fields import ObjectIdField
 
 class WholesaleProfileSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     class Meta:
         model = WholesaleProfile
         fields = ('id', 'user', 'company_name', 'gst_number', 'pan_number', 'business_address', 'is_verified', 'created_at')
         read_only_fields = ('id', 'user', 'created_at')
 
 class NegotiationRequestSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     product_details = ProductSerializer(source='product', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     wholesaler_name = serializers.SerializerMethodField()

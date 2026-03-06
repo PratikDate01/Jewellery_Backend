@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import Review
+from accounts.fields import ObjectIdField
 
 class ReviewSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     user_email = serializers.ReadOnlyField(source='user.email')
 
     class Meta:

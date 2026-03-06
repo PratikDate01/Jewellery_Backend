@@ -3,10 +3,12 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.backends import ModelBackend
 from accounts.backends import EmailBackend
+from accounts.fields import ObjectIdField
 
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    id = ObjectIdField(read_only=True)
     class Meta:
         model = User
         fields = ('id', 'email', 'name', 'role', 'phone', 'address', 'profile_image', 'date_joined')
