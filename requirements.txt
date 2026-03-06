@@ -1,0 +1,12 @@
+Django
+djangorestframework
+django-cors-headers
+django-filter
+django-mongodb-backend
+pymongo
+python-dotenv
+cloudinary
+django-cloudinary-storage
+djangorestframework-simplejwt
+gunicorn
+whitenoise
