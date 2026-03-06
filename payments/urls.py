@@ -8,6 +8,6 @@ router.register(r'supplier', SupplierPaymentViewSet, basename='supplierpayment')
 router.register(r'', PaymentViewSet, basename='payments')
 
 urlpatterns = [
-    path('by-po/<int:po_id>/', SupplierPaymentViewSet.as_view({'get': 'by_po'}), name='payments-by-po'),
+    path('by-po/<str:po_id>/', SupplierPaymentViewSet.as_view({'get': 'by_po'}), name='payments-by-po'),
     path('', include(router.urls)),
 ]
