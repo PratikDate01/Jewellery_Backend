@@ -5,7 +5,7 @@ from .models import Cart, CartItem
 from .serializers import CartSerializer, CartItemSerializer
 
 class CartViewSet(viewsets.GenericViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = CartSerializer
 
     def get_queryset(self):
@@ -39,7 +39,7 @@ class CartViewSet(viewsets.GenericViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class CartItemViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = CartItemSerializer
 
     def get_queryset(self):
