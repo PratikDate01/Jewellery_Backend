@@ -21,7 +21,7 @@ class SupplierProductSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
-    category = ObjectIdField(required=False, allow_null=True)
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
     
     # Map to names used in frontend
     price = serializers.DecimalField(source='cost_price', max_digits=12, decimal_places=2)
@@ -36,12 +36,31 @@ class SupplierProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupplierProduct
         fields = (
-            'id', 'name', 'description', 'price', 'available_quantity', 
+            'id', 'supplier', 'name', 'description', 'price', 'available_quantity', 
             'category', 'category_name', 'images', 'uploaded_images',
             'purity', 'gold_weight', 'diamond_clarity', 'status', 
             'admin_notes', 'created_at', 'updated_at'
         )
-        read_only_fields = ('created_at', 'updated_at', 'status', 'admin_notes')
+        read_only_fields = ('supplier', 'created_at', 'updated_at', 'status', 'admin_notes')
+
+    def to_internal_value(self, data):
+        # Handle QueryDict (FormData)
+        if hasattr(data, 'getlist'):
+            internal_data = {}
+            for key in data.keys():
+                if key == 'uploaded_images':
+                    internal_data[key] = data.getlist(key)
+                else:
+                    internal_data[key] = data.get(key)
+            
+            # Clean empty strings for specific fields
+            for field in ['category', 'gold_weight', 'price', 'available_quantity']:
+                if field in internal_data and (internal_data[field] == '' or internal_data[field] == 'null' or internal_data[field] == 'undefined'):
+                    internal_data[field] = None
+            
+            return super().to_internal_value(internal_data)
+        
+        return super().to_internal_value(data)
 
     def get_category_name(self, obj):
         return obj.category.name if obj.category else "Uncategorized"
