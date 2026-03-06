@@ -21,6 +21,7 @@ class SupplierProductSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
+    category = ObjectIdField(required=False, allow_null=True)
     
     # Map to names used in frontend
     price = serializers.DecimalField(source='cost_price', max_digits=12, decimal_places=2)
@@ -186,6 +187,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
+    supplier = ObjectIdField(required=False, allow_null=True)
+    product = ObjectIdField(required=False, allow_null=True)
     supplier_email = serializers.EmailField(source='supplier.email', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
@@ -218,6 +221,8 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
+    customer = ObjectIdField(required=False, allow_null=True)
+    product = ObjectIdField(required=False, allow_null=True)
     customer_email = serializers.EmailField(source='customer.email', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_image = serializers.SerializerMethodField(read_only=True)
@@ -238,6 +243,8 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
+    category = ObjectIdField(required=False, allow_null=True)
+    supplier_user = ObjectIdField(required=False, allow_null=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
     supplier_email = serializers.SerializerMethodField()

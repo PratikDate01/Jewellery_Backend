@@ -36,11 +36,11 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated:
+        if not user or not user.is_authenticated:
             return SupplierProduct.objects.none()
         if user.role == 'ADMIN':
             return SupplierProduct.objects.all().prefetch_related('images')
-        return SupplierProduct.objects.filter(supplier=user).prefetch_related('images')
+        return SupplierProduct.objects.filter(supplier_id=user.id).prefetch_related('images')
 
     def perform_create(self, serializer):
         serializer.save(supplier=self.request.user)
@@ -63,7 +63,7 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
                 'purity': supplier_product.purity,
                 'gold_weight': supplier_product.gold_weight,
                 'diamond_clarity': supplier_product.diamond_clarity,
-                'supplier_user': supplier_product.supplier,
+                'supplier_user_id': supplier_product.supplier_id,
                 'is_approved': True
             }
         )
@@ -84,7 +84,7 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
                     is_primary=img.is_primary
                 )
 
-        return Response({'status': 'approved', 'product_id': product.id})
+        return Response({'status': 'approved', 'product_id': str(product.id)})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -96,7 +96,7 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def my_products(self, request):
-        products = SupplierProduct.objects.filter(supplier=request.user).prefetch_related('images')
+        products = SupplierProduct.objects.filter(supplier_id=request.user.id).prefetch_related('images')
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
 
@@ -126,7 +126,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             if self.request.user.role == 'ADMIN':
                 return Product.objects.all().prefetch_related('images')
             elif self.request.user.role == 'SUPPLIER':
-                return Product.objects.filter(supplier_user=self.request.user).prefetch_related('images')
+                return Product.objects.filter(supplier_user_id=self.request.user.id).prefetch_related('images')
             elif self.request.user.role == 'CUSTOMER':
                 return Product.objects.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0).prefetch_related('images')
         return Product.objects.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0).prefetch_related('images')
@@ -177,7 +177,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], permission_classes=[IsSupplier()])
     def my_products(self, request):
-        products = Product.objects.filter(supplier_user=request.user).prefetch_related('images')
+        products = Product.objects.filter(supplier_user_id=request.user.id).prefetch_related('images')
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
 
