@@ -16,11 +16,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-this')
 
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    'jewellery-backend-ewfw.onrender.com',
-    'localhost',
-    '127.0.0.1',
-]
+ALLOWED_HOSTS = ['*']
 
 
 # ========================
@@ -207,6 +203,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ========================
 # CORS SETTINGS (React)
 # ========================
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "https://jwellery-frontend-opal.vercel.app",
