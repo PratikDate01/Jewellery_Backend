@@ -13,7 +13,10 @@ class CartViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def current(self, request):
-        cart, created = Cart.objects.get_or_create(user=request.user)
+        user = request.user
+        if not user or user.is_anonymous:
+            return Response({"detail": "Not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+        cart, created = Cart.objects.get_or_create(user=user)
         serializer = self.get_serializer(cart)
         return Response(serializer.data)
 
