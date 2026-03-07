@@ -14,9 +14,9 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-this')
 
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 
 # ========================
@@ -103,8 +103,6 @@ DATABASES = {
         'HOST': os.getenv('MONGO_URI'),
     }
 }
-
-print("DATABASE:", DATABASES['default'])
 
 
 # ========================

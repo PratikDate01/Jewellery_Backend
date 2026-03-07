@@ -8,14 +8,21 @@ from orders.models import OrderItem
 from django.db.models import Sum
 
 class SupplierProfileViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = SupplierSerializer
 
     def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Supplier.objects.none()
         return Supplier.objects.filter(user=self.request.user)
 
     def get_object(self):
-        obj, created = Supplier.objects.get_or_create(user=self.request.user)
+        if not self.request.user.is_authenticated:
+            raise permissions.NotAuthenticated()
+        obj, created = Supplier.objects.get_or_create(
+            user=self.request.user,
+            defaults={'company_name': self.request.user.name or self.request.user.email}
+        )
         return obj
 
     @action(detail=False, methods=['get'])

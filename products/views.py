@@ -20,7 +20,7 @@ import uuid
 
 
 class SupplierProductViewSet(viewsets.ModelViewSet):
-    queryset = SupplierProduct.objects.all().prefetch_related('images')
+    queryset = SupplierProduct.objects.all().select_related('supplier', 'category').prefetch_related('images')
     serializer_class = SupplierProductSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -36,11 +36,13 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        base_qs = SupplierProduct.objects.all().select_related('supplier', 'category').prefetch_related('images')
+        
         if not user or not user.is_authenticated:
             return SupplierProduct.objects.none()
         if user.role == 'ADMIN':
-            return SupplierProduct.objects.all().prefetch_related('images')
-        return SupplierProduct.objects.filter(supplier_id=user.id).prefetch_related('images')
+            return base_qs
+        return base_qs.filter(supplier_id=user.id)
 
     def perform_create(self, serializer):
         serializer.save(supplier=self.request.user)
@@ -102,7 +104,7 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all().prefetch_related('images')
+    queryset = Product.objects.all().select_related('category', 'supplier').prefetch_related('images')
     serializer_class = ProductSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -122,14 +124,16 @@ class ProductViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
     
     def get_queryset(self):
+        base_queryset = Product.objects.all().select_related('category', 'supplier').prefetch_related('images')
+        
         if self.request.user.is_authenticated:
             if self.request.user.role == 'ADMIN':
-                return Product.objects.all().prefetch_related('images')
+                return base_queryset
             elif self.request.user.role == 'SUPPLIER':
-                return Product.objects.filter(supplier_user_id=self.request.user.id).prefetch_related('images')
+                return base_queryset.filter(supplier_user_id=self.request.user.id)
             elif self.request.user.role == 'CUSTOMER':
-                return Product.objects.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0).prefetch_related('images')
-        return Product.objects.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0).prefetch_related('images')
+                return base_queryset.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0)
+        return base_queryset.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0)
     
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -189,7 +193,7 @@ class ProductImageViewSet(viewsets.ModelViewSet):
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
-    queryset = PurchaseOrder.objects.all()
+    queryset = PurchaseOrder.objects.all().select_related('supplier', 'product')
     serializer_class = PurchaseOrderSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['status', 'supplier']
@@ -203,11 +207,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         return [IsAdmin()]
     
     def get_queryset(self):
+        base_qs = PurchaseOrder.objects.all().select_related('supplier', 'product')
         if self.request.user.is_authenticated:
             if self.request.user.role == 'ADMIN':
-                return PurchaseOrder.objects.all()
+                return base_qs
             elif self.request.user.role == 'SUPPLIER':
-                return PurchaseOrder.objects.filter(supplier=self.request.user)
+                return base_qs.filter(supplier=self.request.user)
         return PurchaseOrder.objects.none()
     
     def perform_create(self, serializer):
@@ -228,7 +233,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
 
 class CustomerOrderViewSet(viewsets.ModelViewSet):
-    queryset = CustomerOrder.objects.all()
+    queryset = CustomerOrder.objects.all().select_related('customer', 'product')
     serializer_class = CustomerOrderSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['status', 'product']
@@ -242,11 +247,12 @@ class CustomerOrderViewSet(viewsets.ModelViewSet):
         return [IsAdmin()]
     
     def get_queryset(self):
+        base_qs = CustomerOrder.objects.all().select_related('customer', 'product')
         if self.request.user.is_authenticated:
             if self.request.user.role == 'ADMIN':
-                return CustomerOrder.objects.all()
+                return base_qs
             elif self.request.user.role == 'CUSTOMER':
-                return CustomerOrder.objects.filter(customer=self.request.user)
+                return base_qs.filter(customer=self.request.user)
         return CustomerOrder.objects.none()
     
     def perform_create(self, serializer):
@@ -304,7 +310,7 @@ class CustomerOrderViewSet(viewsets.ModelViewSet):
         )
 
 class StockLedgerViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = StockLedger.objects.all()
+    queryset = StockLedger.objects.all().select_related('product')
     serializer_class = StockLedgerSerializer
     permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -313,7 +319,7 @@ class StockLedgerViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class SupplierPaymentViewSet(viewsets.ModelViewSet):
-    queryset = SupplierPayment.objects.all()
+    queryset = SupplierPayment.objects.all().select_related('purchase_order', 'purchase_order__supplier')
     serializer_class = SupplierPaymentSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['purchase_order', 'payment_method']
@@ -326,12 +332,14 @@ class SupplierPaymentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        base_qs = SupplierPayment.objects.all().select_related('purchase_order', 'purchase_order__supplier')
+        
         if not user.is_authenticated:
             return SupplierPayment.objects.none()
         if user.role == 'ADMIN':
-            return SupplierPayment.objects.all()
+            return base_qs
         elif user.role == 'SUPPLIER':
-            return SupplierPayment.objects.filter(purchase_order__supplier=user)
+            return base_qs.filter(purchase_order__supplier=user)
         return SupplierPayment.objects.none()
 
     @action(detail=False, methods=['get'], url_path=r'by-po/(?P<po_id>[\w-]+)')

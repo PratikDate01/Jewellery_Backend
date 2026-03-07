@@ -104,6 +104,13 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['slug']),
+            models.Index(fields=['sku']),
+            models.Index(fields=['is_enabled', 'is_approved', 'is_available_for_sale']),
+        ]
+
     def save(self, *args, **kwargs):
         if not self.slug:
             original_slug = slugify(self.name)
@@ -115,12 +122,12 @@ class Product(models.Model):
             self.slug = unique_slug
         
         if not self.sku:
-            last_product = Product.objects.all().order_by('id').last()
-            if not last_product:
-                new_id = 1
-            else:
-                new_id = last_product.id + 1
-            self.sku = f"PROD-{new_id:04d}"
+            # For MongoDB, we shouldn't increment based on ObjectId. 
+            # Use count or timestamp-based generation instead.
+            count = Product.objects.count() + 1
+            import time
+            timestamp = int(time.time()) % 10000
+            self.sku = f"PROD-{timestamp:04d}-{count:03d}"
             
         super().save(*args, **kwargs)
     

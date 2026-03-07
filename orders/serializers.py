@@ -11,6 +11,13 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ('id', 'order', 'product', 'product_details', 'supplier', 'quantity', 'price', 'gst_amount', 'subtotal', 'status')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        for field in ['order', 'product', 'supplier']:
+            if field in ret and ret[field]:
+                ret[field] = str(ret[field])
+        return ret
+
 class OrderStatusLogSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
     changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
@@ -62,6 +69,12 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'order_number', 'user_email', 'status', 'payment_status', 'total_amount', 'tax_amount', 'net_amount', 'items', 'created_at')
         read_only_fields = ('id', 'order_number', 'user_email', 'status', 'payment_status', 'total_amount', 'tax_amount', 'net_amount', 'items', 'created_at')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if 'user' in ret and ret['user']:
+            ret['user'] = str(ret['user'])
+        return ret
 
 class OrderDetailSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)

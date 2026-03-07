@@ -3,6 +3,9 @@ from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, Custo
 from categories.models import Category
 from suppliers.models import Supplier
 from accounts.fields import ObjectIdField
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class ProductImageSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
@@ -64,6 +67,15 @@ class SupplierProductSerializer(serializers.ModelSerializer):
 
     def get_category_name(self, obj):
         return obj.category.name if obj.category else "Uncategorized"
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Ensure relation IDs are strings in response
+        if 'supplier' in ret and ret['supplier']:
+            ret['supplier'] = str(ret['supplier'])
+        if 'category' in ret and ret['category']:
+            ret['category'] = str(ret['category'])
+        return ret
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
@@ -206,8 +218,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
-    supplier = ObjectIdField(required=False, allow_null=True)
-    product = ObjectIdField(required=False, allow_null=True)
+    supplier = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='SUPPLIER'), required=False)
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False)
     supplier_email = serializers.EmailField(source='supplier.email', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
@@ -225,6 +237,15 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Ensure relation IDs are also strings in the response
+        if 'supplier' in ret and ret['supplier']:
+            ret['supplier'] = str(ret['supplier'])
+        if 'product' in ret and ret['product']:
+            ret['product'] = str(ret['product'])
+        return ret
+
 
 class SupplierPaymentSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
@@ -237,11 +258,17 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
         fields = ('id', 'purchase_order', 'purchase_order_id', 'amount_paid', 'payment_method', 'transaction_id', 'payment_date', 'notes')
         read_only_fields = ('id', 'payment_date', 'purchase_order')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if 'purchase_order' in ret and ret['purchase_order']:
+            ret['purchase_order'] = str(ret['purchase_order'])
+        return ret
+
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)
-    customer = ObjectIdField(required=False, allow_null=True)
-    product = ObjectIdField(required=False, allow_null=True)
+    customer = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='CUSTOMER'), required=False)
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False)
     customer_email = serializers.EmailField(source='customer.email', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_image = serializers.SerializerMethodField(read_only=True)
@@ -258,6 +285,14 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
         elif obj.product.images.exists():
             return obj.product.images.first().image.url
         return None
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if 'customer' in ret and ret['customer']:
+            ret['customer'] = str(ret['customer'])
+        if 'product' in ret and ret['product']:
+            ret['product'] = str(ret['product'])
+        return ret
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -293,6 +328,15 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     
     def get_margin_percentage(self, obj):
         return obj.margin_percentage
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Ensure relation IDs are also strings in the response
+        if 'category' in ret and ret['category']:
+            ret['category'] = str(ret['category'])
+        if 'supplier_user' in ret and ret['supplier_user']:
+            ret['supplier_user'] = str(ret['supplier_user'])
+        return ret
 
 class StockLedgerSerializer(serializers.ModelSerializer):
     id = ObjectIdField(read_only=True)

@@ -13,6 +13,8 @@ class ObjectIdField(serializers.Field):
     def to_internal_value(self, data):
         if not data:
             return None
+        if isinstance(data, ObjectId):
+            return data
         try:
             return ObjectId(str(data))
         except Exception:
