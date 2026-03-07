@@ -5,11 +5,13 @@ from django.contrib.auth import get_user_model
 from products.models import Product, SupplierProduct, PurchaseOrder, SupplierPayment
 from orders.models import Order, OrderItem
 from django.db import models
-from django.db.models import Sum, Count, F
+from django.db.models import Sum, Count, Q
 from wholesale.models import WholesaleProfile, NegotiationRequest
 from suppliers.models import Supplier
 from orders.serializers import OrderListSerializer
-from products.serializers import ProductSerializer
+from products.serializers import ProductSerializer, SupplierProductSerializer
+from wishlist.models import Wishlist
+from wishlist.serializers import WishlistSerializer
 
 User = get_user_model()
 
@@ -62,34 +64,21 @@ class WholesalerAnalyticsView(APIView):
     def get(self, request):
         try:
             user = request.user
-            if not user or not hasattr(user, 'role'):
-                 return Response({"detail": "User not fully authenticated."}, status=status.HTTP_401_UNAUTHORIZED)
-
             if user.role != 'WHOLESALER':
-                return Response(
-                    {"detail": "Access denied. Only wholesalers can access this endpoint."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
             
-            profile, created = WholesaleProfile.objects.get_or_create(user=user)
-
-            total_orders = Order.objects.filter(user=user).count()
-            active_negotiations = NegotiationRequest.objects.filter(wholesaler=profile, status='PENDING').count()
-            total_spent = Order.objects.filter(user=user, payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0
-
-            recent_orders = Order.objects.filter(user=user).order_by('-created_at')[:5]
-            order_serializer = OrderListSerializer(recent_orders, many=True)
-
+            profile, _ = WholesaleProfile.objects.get_or_create(user=user)
+            orders = Order.objects.filter(user=user)
+            
             data = {
                 'stats': {
-                    'total_orders': total_orders,
-                    'active_negotiations': active_negotiations,
-                    'total_spent': float(total_spent),
+                    'total_orders': orders.count(),
+                    'active_negotiations': NegotiationRequest.objects.filter(wholesaler=profile, status='PENDING').count(),
+                    'total_spent': float(orders.filter(payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0),
                     'company_name': profile.company_name,
-                    'gst_number': profile.gst_number,
                     'is_verified': profile.is_verified
                 },
-                'recent_orders': order_serializer.data
+                'recent_orders': OrderListSerializer(orders.order_by('-created_at')[:5], many=True).data
             }
             return Response(data)
         except Exception as e:
@@ -100,50 +89,116 @@ class SupplierAnalyticsView(APIView):
 
     def get(self, request):
         try:
-            # Add safety check for user
             user = request.user
-            if not user or not hasattr(user, 'role'):
-                 return Response({"detail": "User not fully authenticated."}, status=status.HTTP_401_UNAUTHORIZED)
-
             if user.role != 'SUPPLIER':
-                return Response(
-                    {"detail": "Access denied. Only suppliers can access this endpoint."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
             
-            # Using SupplierProduct for supplier's own inventory
-            supplier_products = SupplierProduct.objects.filter(supplier=user).prefetch_related('images')
-            total_products = supplier_products.count()
-            approved_products = supplier_products.filter(status='APPROVED').count()
-            pending_products = supplier_products.filter(status='PENDING').count()
+            products = SupplierProduct.objects.filter(supplier=user)
+            pos = PurchaseOrder.objects.filter(supplier=user)
             
-            # Real-world B2B stats: Based on Purchase Orders and Payments
-            purchase_orders = PurchaseOrder.objects.filter(supplier=request.user)
-            
-            total_revenue = purchase_orders.aggregate(total=Sum('total_cost'))['total']
-            if total_revenue is None: total_revenue = 0
-            
-            amount_paid = SupplierPayment.objects.filter(
-                purchase_order__supplier=request.user
-            ).aggregate(total=Sum('amount_paid'))['total']
-            if amount_paid is None: amount_paid = 0
-            
-            pending_balance = float(total_revenue) - float(amount_paid)
-            
-            from products.serializers import SupplierProductSerializer
-            product_serializer = SupplierProductSerializer(supplier_products, many=True)
-
             data = {
                 'stats': {
-                    'total_products': total_products,
-                    'approved_products': approved_products,
-                    'pending_products': pending_products,
-                    'total_revenue': float(total_revenue),
-                    'amount_paid': float(amount_paid),
-                    'pending_balance': float(pending_balance),
+                    'total_products': products.count(),
+                    'approved_products': products.filter(status='APPROVED').count(),
+                    'total_revenue': float(pos.aggregate(Sum('total_cost'))['total_cost__sum'] or 0),
                 },
-                'inventory': product_serializer.data
+                'inventory': SupplierProductSerializer(products[:10], many=True).data
             }
             return Response(data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UnifiedDashboardView(APIView):
+    """
+    Unified endpoint to fetch all dashboard data for the current user's role.
+    Drastically reduces API calls from the frontend.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        role = getattr(user, 'role', None)
+
+        try:
+            if role == 'ADMIN':
+                return self._get_admin_data(request)
+            elif role == 'SUPPLIER':
+                return self._get_supplier_data(request)
+            elif role == 'WHOLESALER':
+                return self._get_wholesaler_data(request)
+            elif role == 'CUSTOMER':
+                return self._get_customer_data(request)
+            else:
+                return Response({"error": "Unknown role"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _get_admin_data(self, request):
+        total_users = User.objects.count()
+        total_revenue = Order.objects.filter(payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0
+        recent_orders = Order.objects.order_by('-created_at')[:5]
+        low_stock = Product.objects.filter(stock_quantity__lte=5)[:5]
+        
+        return Response({
+            'role': 'ADMIN',
+            'stats': {
+                'total_users': total_users,
+                'total_revenue': float(total_revenue),
+                'total_products': Product.objects.count(),
+                'pending_approvals': SupplierProduct.objects.filter(status='PENDING').count()
+            },
+            'recent_orders': OrderListSerializer(recent_orders, many=True).data,
+            'low_stock': ProductSerializer(low_stock, many=True).data
+        })
+
+    def _get_supplier_data(self, request):
+        user = request.user
+        supplier_products = SupplierProduct.objects.filter(supplier=user)
+        purchase_orders = PurchaseOrder.objects.filter(supplier=user)
+        
+        total_rev = purchase_orders.aggregate(Sum('total_cost'))['total_cost__sum'] or 0
+        paid_amt = SupplierPayment.objects.filter(purchase_order__supplier=user).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+        
+        return Response({
+            'role': 'SUPPLIER',
+            'stats': {
+                'total_products': supplier_products.count(),
+                'approved_products': supplier_products.filter(status='APPROVED').count(),
+                'total_revenue': float(total_rev),
+                'pending_balance': float(total_rev) - float(paid_amt)
+            },
+            'inventory': SupplierProductSerializer(supplier_products[:10], many=True).data,
+            'recent_orders': [] # Suppliers might need recent POs here
+        })
+
+    def _get_wholesaler_data(self, request):
+        user = request.user
+        profile, _ = WholesaleProfile.objects.get_or_create(user=user)
+        orders = Order.objects.filter(user=user)
+        
+        return Response({
+            'role': 'WHOLESALER',
+            'stats': {
+                'total_orders': orders.count(),
+                'total_spent': float(orders.filter(payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0),
+                'active_negotiations': NegotiationRequest.objects.filter(wholesaler=profile, status='PENDING').count(),
+                'is_verified': profile.is_verified
+            },
+            'recent_orders': OrderListSerializer(orders.order_by('-created_at')[:5], many=True).data
+        })
+
+    def _get_customer_data(self, request):
+        user = request.user
+        orders = Order.objects.filter(user=user)
+        wishlist, _ = Wishlist.objects.get_or_create(user=user)
+        
+        return Response({
+            'role': 'CUSTOMER',
+            'stats': {
+                'total_orders': orders.count(),
+                'total_spent': float(orders.filter(payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0),
+                'wishlist_count': wishlist.items.count()
+            },
+            'recent_orders': OrderListSerializer(orders.order_by('-created_at')[:5], many=True).data,
+            'wishlist': WishlistSerializer(wishlist).data
+        })
