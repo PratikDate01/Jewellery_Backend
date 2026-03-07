@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import Supplier
 from accounts.fields import ObjectIdField
+from accounts.serializers import BaseMongoSerializer
 
-class SupplierSerializer(serializers.ModelSerializer):
+class SupplierSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     class Meta:
         model = Supplier

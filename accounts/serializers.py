@@ -4,10 +4,24 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.backends import ModelBackend
 from accounts.backends import EmailBackend
 from accounts.fields import ObjectIdField
+from bson import ObjectId
 
 User = get_user_model()
 
-class UserSerializer(serializers.ModelSerializer):
+class BaseMongoSerializer(serializers.ModelSerializer):
+    """
+    Base serializer that ensures all ObjectId fields are converted to strings in the response.
+    """
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        for field, value in ret.items():
+            if isinstance(value, ObjectId):
+                ret[field] = str(value)
+            elif isinstance(value, list):
+                ret[field] = [str(v) if isinstance(v, ObjectId) else v for v in value]
+        return ret
+
+class UserSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     class Meta:
         model = User

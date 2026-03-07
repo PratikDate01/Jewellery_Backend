@@ -2,21 +2,17 @@ from rest_framework import serializers
 from .models import WholesaleProfile, NegotiationRequest
 from products.serializers import ProductSerializer
 from accounts.fields import ObjectIdField
+from accounts.serializers import BaseMongoSerializer
 
-class WholesaleProfileSerializer(serializers.ModelSerializer):
+class WholesaleProfileSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     class Meta:
         model = WholesaleProfile
         fields = ('id', 'user', 'company_name', 'gst_number', 'pan_number', 'business_address', 'is_verified', 'created_at')
         read_only_fields = ('id', 'user', 'created_at')
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if 'user' in ret and ret['user']:
-            ret['user'] = str(ret['user'])
-        return ret
 
-class NegotiationRequestSerializer(serializers.ModelSerializer):
+class NegotiationRequestSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     product_details = ProductSerializer(source='product', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
@@ -29,10 +25,3 @@ class NegotiationRequestSerializer(serializers.ModelSerializer):
     
     def get_wholesaler_name(self, obj):
         return obj.wholesaler.company_name if obj.wholesaler else "Unknown"
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        for field in ['wholesaler', 'product']:
-            if field in ret and ret[field]:
-                ret[field] = str(ret[field])
-        return ret

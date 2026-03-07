@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import Review
 from accounts.fields import ObjectIdField
+from accounts.serializers import BaseMongoSerializer
 
-class ReviewSerializer(serializers.ModelSerializer):
+class ReviewSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     user_email = serializers.ReadOnlyField(source='user.email')
 
@@ -10,10 +11,3 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = ('id', 'user', 'user_email', 'product', 'rating', 'comment', 'image', 'created_at', 'updated_at')
         read_only_fields = ('id', 'user', 'user_email', 'created_at', 'updated_at')
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        for field in ['user', 'product']:
-            if field in ret and ret[field]:
-                ret[field] = str(ret[field])
-        return ret

@@ -3,11 +3,13 @@ from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, Custo
 from categories.models import Category
 from suppliers.models import Supplier
 from accounts.fields import ObjectIdField
+from accounts.serializers import BaseMongoSerializer
+from bson import ObjectId
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class ProductImageSerializer(serializers.ModelSerializer):
+class ProductImageSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     image = serializers.SerializerMethodField()
 
@@ -20,7 +22,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
             return obj.image.url
         return None
 
-class SupplierProductSerializer(serializers.ModelSerializer):
+class SupplierProductSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
@@ -68,15 +70,6 @@ class SupplierProductSerializer(serializers.ModelSerializer):
     def get_category_name(self, obj):
         return obj.category.name if obj.category else "Uncategorized"
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        # Ensure relation IDs are strings in response
-        if 'supplier' in ret and ret['supplier']:
-            ret['supplier'] = str(ret['supplier'])
-        if 'category' in ret and ret['category']:
-            ret['category'] = str(ret['category'])
-        return ret
-
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
         product = SupplierProduct.objects.create(**validated_data)
@@ -84,7 +77,7 @@ class SupplierProductSerializer(serializers.ModelSerializer):
             ProductImage.objects.create(supplier_product=product, image=image)
         return product
 
-class ProductSerializer(serializers.ModelSerializer):
+class ProductSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
@@ -202,7 +195,7 @@ class ProductSerializer(serializers.ModelSerializer):
             
         return instance
 
-class CategorySerializer(serializers.ModelSerializer):
+class CategorySerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     subcategories = serializers.SerializerMethodField()
 
@@ -216,7 +209,7 @@ class CategorySerializer(serializers.ModelSerializer):
         return []
 
 
-class PurchaseOrderSerializer(serializers.ModelSerializer):
+class PurchaseOrderSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     supplier = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='SUPPLIER'), required=False)
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False)
@@ -237,17 +230,8 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        # Ensure relation IDs are also strings in the response
-        if 'supplier' in ret and ret['supplier']:
-            ret['supplier'] = str(ret['supplier'])
-        if 'product' in ret and ret['product']:
-            ret['product'] = str(ret['product'])
-        return ret
 
-
-class SupplierPaymentSerializer(serializers.ModelSerializer):
+class SupplierPaymentSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     purchase_order_id = serializers.PrimaryKeyRelatedField(
         queryset=PurchaseOrder.objects.all(), source='purchase_order', write_only=True
@@ -258,14 +242,8 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
         fields = ('id', 'purchase_order', 'purchase_order_id', 'amount_paid', 'payment_method', 'transaction_id', 'payment_date', 'notes')
         read_only_fields = ('id', 'payment_date', 'purchase_order')
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if 'purchase_order' in ret and ret['purchase_order']:
-            ret['purchase_order'] = str(ret['purchase_order'])
-        return ret
 
-
-class CustomerOrderSerializer(serializers.ModelSerializer):
+class CustomerOrderSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     customer = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='CUSTOMER'), required=False)
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False)
@@ -286,16 +264,8 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
             return obj.product.images.first().image.url
         return None
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if 'customer' in ret and ret['customer']:
-            ret['customer'] = str(ret['customer'])
-        if 'product' in ret and ret['product']:
-            ret['product'] = str(ret['product'])
-        return ret
 
-
-class ProductDetailSerializer(serializers.ModelSerializer):
+class ProductDetailSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     category = ObjectIdField(required=False, allow_null=True)
     supplier_user = ObjectIdField(required=False, allow_null=True)
@@ -329,16 +299,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def get_margin_percentage(self, obj):
         return obj.margin_percentage
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        # Ensure relation IDs are also strings in the response
-        if 'category' in ret and ret['category']:
-            ret['category'] = str(ret['category'])
-        if 'supplier_user' in ret and ret['supplier_user']:
-            ret['supplier_user'] = str(ret['supplier_user'])
-        return ret
-
-class StockLedgerSerializer(serializers.ModelSerializer):
+class StockLedgerSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)

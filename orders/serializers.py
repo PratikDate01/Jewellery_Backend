@@ -2,8 +2,9 @@ from rest_framework import serializers
 from .models import Order, OrderItem, OrderStatusLog, OrderTracking, OrderTimelineEvent, OrderAction
 from products.serializers import ProductSerializer
 from accounts.fields import ObjectIdField
+from accounts.serializers import BaseMongoSerializer
 
-class OrderItemSerializer(serializers.ModelSerializer):
+class OrderItemSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     product_details = ProductSerializer(source='product', read_only=True)
 
@@ -11,14 +12,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ('id', 'order', 'product', 'product_details', 'supplier', 'quantity', 'price', 'gst_amount', 'subtotal', 'status')
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        for field in ['order', 'product', 'supplier']:
-            if field in ret and ret[field]:
-                ret[field] = str(ret[field])
-        return ret
 
-class OrderStatusLogSerializer(serializers.ModelSerializer):
+class OrderStatusLogSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
     previous_status_display = serializers.CharField(source='get_previous_status_display', read_only=True)
@@ -29,7 +24,7 @@ class OrderStatusLogSerializer(serializers.ModelSerializer):
         fields = ('id', 'previous_status', 'previous_status_display', 'new_status', 'new_status_display', 'changed_by_email', 'notes', 'created_at')
         read_only_fields = ('id', 'previous_status', 'previous_status_display', 'new_status', 'new_status_display', 'changed_by_email', 'notes', 'created_at')
 
-class OrderTrackingSerializer(serializers.ModelSerializer):
+class OrderTrackingSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     
@@ -38,7 +33,7 @@ class OrderTrackingSerializer(serializers.ModelSerializer):
         fields = ('id', 'tracking_number', 'carrier', 'carrier_url', 'status', 'status_display', 'current_location', 'picked_up_date', 'estimated_delivery', 'actual_delivery_date', 'last_updated', 'created_at')
         read_only_fields = ('tracking_number', 'created_at', 'last_updated')
 
-class OrderTimelineEventSerializer(serializers.ModelSerializer):
+class OrderTimelineEventSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True, allow_null=True)
     event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
@@ -48,7 +43,7 @@ class OrderTimelineEventSerializer(serializers.ModelSerializer):
         fields = ('id', 'event_type', 'event_type_display', 'title', 'description', 'user_email', 'location', 'created_at')
         read_only_fields = ('id', 'event_type', 'event_type_display', 'title', 'description', 'user_email', 'location', 'created_at')
 
-class OrderActionSerializer(serializers.ModelSerializer):
+class OrderActionSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     requested_by_email = serializers.EmailField(source='requested_by.email', read_only=True)
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True, allow_null=True)
@@ -60,7 +55,7 @@ class OrderActionSerializer(serializers.ModelSerializer):
         fields = ('id', 'action_type', 'action_type_display', 'status', 'status_display', 'requested_by_email', 'approved_by_email', 'description', 'rejection_reason', 'requested_at', 'updated_at', 'completed_at')
         read_only_fields = ('requested_at', 'updated_at', 'completed_at')
 
-class OrderSerializer(serializers.ModelSerializer):
+class OrderSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
@@ -70,13 +65,8 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_number', 'user_email', 'status', 'payment_status', 'total_amount', 'tax_amount', 'net_amount', 'items', 'created_at')
         read_only_fields = ('id', 'order_number', 'user_email', 'status', 'payment_status', 'total_amount', 'tax_amount', 'net_amount', 'items', 'created_at')
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if 'user' in ret and ret['user']:
-            ret['user'] = str(ret['user'])
-        return ret
 
-class OrderDetailSerializer(serializers.ModelSerializer):
+class OrderDetailSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     status_history = OrderStatusLogSerializer(many=True, read_only=True)
@@ -101,7 +91,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('order_number', 'tracking_number', 'status', 'payment_status', 'created_at', 'updated_at')
 
-class OrderListSerializer(serializers.ModelSerializer):
+class OrderListSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -126,12 +116,12 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
     notes = serializers.CharField(required=False, allow_blank=True)
 
-class UpdateTrackingSerializer(serializers.ModelSerializer):
+class UpdateTrackingSerializer(BaseMongoSerializer):
     class Meta:
         model = OrderTracking
         fields = ('status', 'current_location', 'carrier', 'carrier_url', 'estimated_delivery', 'picked_up_date')
 
-class CreateOrderActionSerializer(serializers.ModelSerializer):
+class CreateOrderActionSerializer(BaseMongoSerializer):
     class Meta:
         model = OrderAction
         fields = ('action_type', 'description')
