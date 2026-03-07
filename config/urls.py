@@ -2,8 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
+
+def health_check(request):
+    return JsonResponse({"status": "healthy", "service": "jewellery-marketplace-backend"})
 
 urlpatterns = [
+    path('health/', health_check, name='health_check'),
+    path('api/health/', health_check), # Ensure both match for axios.get
     path('admin/', admin.site.urls),
     path('api/accounts/', include('accounts.urls')),
     path('api/cart/', include('cart.urls')),
