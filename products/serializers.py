@@ -269,11 +269,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     supplier_email = serializers.SerializerMethodField()
     margin = serializers.SerializerMethodField()
     margin_percentage = serializers.SerializerMethodField()
+    price = serializers.DecimalField(source='retail_price', max_digits=12, decimal_places=2, read_only=True)
     
     class Meta:
         model = Product
         fields = (
-            'id', 'name', 'slug', 'description', 'cost_price', 'selling_price', 
+            'id', 'name', 'slug', 'description', 'price', 'cost_price', 'selling_price', 
             'margin', 'margin_percentage', 'stock_quantity', 'sku', 'category', 
             'category_name', 'images', 'purity', 'gold_weight', 'diamond_clarity', 
             'is_featured', 'is_approved', 'supplier_user', 'supplier_email',
