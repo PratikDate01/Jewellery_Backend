@@ -14,12 +14,16 @@ class BaseMongoSerializer(serializers.ModelSerializer):
     """
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        for field, value in ret.items():
-            if isinstance(value, ObjectId):
-                ret[field] = str(value)
-            elif isinstance(value, list):
-                ret[field] = [str(v) if isinstance(v, ObjectId) else v for v in value]
-        return ret
+        return self._convert_objectid(ret)
+
+    def _convert_objectid(self, data):
+        if isinstance(data, ObjectId):
+            return str(data)
+        if isinstance(data, list):
+            return [self._convert_objectid(item) for item in data]
+        if isinstance(data, dict):
+            return {key: self._convert_objectid(value) for key, value in data.items()}
+        return data
 
 class UserSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)

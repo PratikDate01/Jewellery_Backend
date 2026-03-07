@@ -266,6 +266,12 @@ def handle_purchase_order_received(sender, instance, created, **kwargs):
                 
             product.save()
 
+            # Sync SupplierProduct stock
+            if product.supplier_product:
+                sp = product.supplier_product
+                sp.stock_quantity = max(0, sp.stock_quantity - instance.quantity)
+                sp.save()
+
             # Record in Ledger
             StockLedger.objects.create(
                 product=product,
