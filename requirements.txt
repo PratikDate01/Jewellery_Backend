@@ -4,6 +4,7 @@ django-cors-headers
 django-filter
 django-mongodb-backend
 pymongo
+dnspython
 python-dotenv
 cloudinary
 django-cloudinary-storage
