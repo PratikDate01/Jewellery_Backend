@@ -78,7 +78,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             order_items_data.append({
                 'product': product,
                 'quantity': cart_item.quantity,
-                'price': product.retail_price,
+                'price': product.selling_price,
                 'cost_price': product.cost_price,
                 'subtotal': cart_item.subtotal
             })

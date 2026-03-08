@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from .models import WholesaleProfile, NegotiationRequest
 from .serializers import WholesaleProfileSerializer, NegotiationRequestSerializer
+from accounts.permissions import IsAdmin
 from orders.models import Order
 from django.db.models import Sum
 import uuid
@@ -79,7 +80,7 @@ class NegotiationRequestViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
     def accept(self, request, pk=None):
         negotiation = self.get_object()
         negotiation.status = 'ACCEPTED'
@@ -87,7 +88,7 @@ class NegotiationRequestViewSet(viewsets.ModelViewSet):
         negotiation.save()
         return Response({'status': 'accepted'})
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
     def reject(self, request, pk=None):
         negotiation = self.get_object()
         negotiation.status = 'REJECTED'

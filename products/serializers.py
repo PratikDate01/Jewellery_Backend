@@ -84,7 +84,7 @@ class ProductSerializer(BaseMongoSerializer):
     supplier_name = serializers.SerializerMethodField()
     
     # Use simple names for frontend mapping
-    price = serializers.DecimalField(source='retail_price', max_digits=12, decimal_places=2)
+    price = serializers.DecimalField(source='selling_price', max_digits=12, decimal_places=2)
     available_quantity = serializers.IntegerField(source='stock_quantity')
     is_active = serializers.BooleanField(source='is_enabled', default=True, required=False)
     
@@ -160,7 +160,14 @@ class ProductSerializer(BaseMongoSerializer):
         return obj.category.name if obj.category else "Uncategorized"
 
     def get_supplier_name(self, obj):
-        return obj.supplier.company_name if obj.supplier else "Direct"
+        if obj.supplier:
+            return obj.supplier.company_name
+        if obj.supplier_user:
+            try:
+                return obj.supplier_user.supplier_profile.company_name
+            except:
+                return obj.supplier_user.email
+        return "Direct Stock"
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
@@ -274,7 +281,7 @@ class ProductDetailSerializer(BaseMongoSerializer):
     supplier_email = serializers.SerializerMethodField()
     margin = serializers.SerializerMethodField()
     margin_percentage = serializers.SerializerMethodField()
-    price = serializers.DecimalField(source='retail_price', max_digits=12, decimal_places=2, read_only=True)
+    price = serializers.DecimalField(source='selling_price', max_digits=12, decimal_places=2, read_only=True)
     
     class Meta:
         model = Product

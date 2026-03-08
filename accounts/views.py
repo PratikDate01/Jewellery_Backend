@@ -8,6 +8,7 @@ from .serializers import (
     LoginSerializer,
     LoginResponseSerializer
 )
+from .permissions import IsAdmin
 
 from django.contrib.auth import get_user_model
 
@@ -61,12 +62,12 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 class AdminUserListView(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]
 
 class AdminUserDeleteView(generics.DestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -91,4 +92,4 @@ class AdminUserDeleteView(generics.DestroyAPIView):
 class AdminSupplierListView(generics.ListAPIView):
     queryset = User.objects.filter(role='SUPPLIER')
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]

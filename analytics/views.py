@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions, status
+from accounts.permissions import IsAdmin
 from django.contrib.auth import get_user_model
 from products.models import Product, SupplierProduct, PurchaseOrder, SupplierPayment
 from orders.models import Order, OrderItem
@@ -16,7 +17,7 @@ from wishlist.serializers import WishlistSerializer
 User = get_user_model()
 
 class AdminAnalyticsView(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         try:

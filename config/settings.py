@@ -1,3 +1,4 @@
+import cloudinary
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -282,6 +283,14 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET','FEN2xeA7akzEbkj4NYDRl-YkxBs'),
     'SECURE': True,
 }
+
+# Ensure Cloudinary SDK also uses HTTPS
+cloudinary.config(
+    cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],
+    api_key=CLOUDINARY_STORAGE['API_KEY'],
+    api_secret=CLOUDINARY_STORAGE['API_SECRET'],
+    secure=True
+)
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 

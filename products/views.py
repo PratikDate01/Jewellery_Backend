@@ -54,6 +54,9 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         supplier_product.save()
         
         # Create or update store product
+        from suppliers.models import Supplier
+        supplier_profile = Supplier.objects.filter(user_id=supplier_product.supplier_id).first()
+        
         product, created = Product.objects.get_or_create(
             supplier_product=supplier_product,
             defaults={
@@ -61,11 +64,13 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
                 'description': supplier_product.description,
                 'category': supplier_product.category,
                 'cost_price': supplier_product.cost_price,
-                'stock_quantity': 0, # Strict: Start with 0 stock until PurchaseOrder is received
+                'selling_price': supplier_product.cost_price * 1.2, # Default 20% markup
+                'stock_quantity': 0, 
                 'purity': supplier_product.purity,
                 'gold_weight': supplier_product.gold_weight,
                 'diamond_clarity': supplier_product.diamond_clarity,
                 'supplier_user_id': supplier_product.supplier_id,
+                'supplier': supplier_profile,
                 'is_approved': True
             }
         )
@@ -74,7 +79,8 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
             product.name = supplier_product.name
             product.description = supplier_product.description
             product.cost_price = supplier_product.cost_price
-            # Do NOT update stock_quantity here; it's managed by Purchase Orders
+            product.supplier_user_id = supplier_product.supplier_id
+            product.supplier = supplier_profile
             product.save()
 
         # Copy images if not already copied
