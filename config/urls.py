@@ -4,8 +4,27 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 
+from django.contrib.auth import get_user_model
+
 def health_check(request):
-    return JsonResponse({"status": "healthy", "service": "jewellery-marketplace-backend"})
+    """
+    Enhanced health check that ensures DB connection is also warmed up.
+    Helps prevent timeouts on Render cold starts.
+    """
+    try:
+        # Simple DB check - count users or similar lightweight query
+        User = get_user_model()
+        User.objects.first() 
+        return JsonResponse({
+            "status": "healthy", 
+            "service": "jewellery-marketplace-backend",
+            "db": "connected"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "status": "degraded",
+            "error": str(e)
+        }, status=503)
 
 urlpatterns = [
     path('health/', health_check, name='health_check'),
