@@ -15,14 +15,9 @@ class UserManager(BaseUserManager):
         
         email = self.normalize_email(email)
         
-        role = extra_fields.get('role', 'CUSTOMER')
-        
-        if email.lower() in [e.lower() for e in getattr(settings, 'ADMIN_EMAILS', [])]:
-            role = 'ADMIN'
-            extra_fields['is_staff'] = True
-            extra_fields['is_superuser'] = True
-        
-        extra_fields['role'] = role
+        # Default role to CUSTOMER if not provided
+        if 'role' not in extra_fields:
+            extra_fields['role'] = 'CUSTOMER'
         
         user = self.model(email=email, **extra_fields)
         if password:

@@ -3,7 +3,7 @@ from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, Custo
 from categories.models import Category
 from suppliers.models import Supplier
 from accounts.fields import ObjectIdField
-from accounts.serializers import BaseMongoSerializer
+from accounts.base_serializers import BaseMongoSerializer
 from bson import ObjectId
 from django.contrib.auth import get_user_model
 

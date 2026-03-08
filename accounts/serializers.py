@@ -4,26 +4,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.backends import ModelBackend
 from accounts.backends import EmailBackend
 from accounts.fields import ObjectIdField
+from accounts.base_serializers import BaseMongoSerializer
 from bson import ObjectId
 
 User = get_user_model()
-
-class BaseMongoSerializer(serializers.ModelSerializer):
-    """
-    Base serializer that ensures all ObjectId fields are converted to strings in the response.
-    """
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        return self._convert_objectid(ret)
-
-    def _convert_objectid(self, data):
-        if isinstance(data, ObjectId):
-            return str(data)
-        if isinstance(data, list):
-            return [self._convert_objectid(item) for item in data]
-        if isinstance(data, dict):
-            return {key: self._convert_objectid(value) for key, value in data.items()}
-        return data
 
 class UserSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)
@@ -44,6 +28,11 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_role(self, value):
+        if value == 'ADMIN':
+            raise serializers.ValidationError("Cannot register as an Admin. Admins must be created via management commands.")
         return value
 
     def validate(self, data):

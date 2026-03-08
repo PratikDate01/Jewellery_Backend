@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Cart, CartItem
 from .serializers import CartSerializer, CartItemSerializer
+from products.models import Product
 
 class CartViewSet(viewsets.GenericViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -25,21 +26,32 @@ class CartViewSet(viewsets.GenericViewSet):
         product_id = request.data.get('product_id')
         quantity = int(request.data.get('quantity', 1))
         
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not product.is_available_for_sale:
+            return Response({'error': 'Product is currently not available for sale'}, status=status.HTTP_400_BAD_REQUEST)
+
         cart, _ = Cart.objects.get_or_create(user=request.user)
         
-        try:
-            cart_item, created = CartItem.objects.get_or_create(
-                cart=cart, 
-                product_id=product_id,
-                defaults={'quantity': quantity}
-            )
-            if not created:
-                cart_item.quantity += quantity
-                cart_item.save()
+        cart_item = CartItem.objects.filter(cart=cart, product=product).first()
+        current_cart_qty = cart_item.quantity if cart_item else 0
+        total_requested_qty = current_cart_qty + quantity
+
+        if total_requested_qty > product.stock_quantity:
+            return Response({
+                'error': f'Cannot add more items than available stock. Available: {product.stock_quantity}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if cart_item:
+            cart_item.quantity = total_requested_qty
+            cart_item.save()
+        else:
+            CartItem.objects.create(cart=cart, product=product, quantity=quantity)
             
-            return Response({'status': 'Item added to cart'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'status': 'Item added to cart'}, status=status.HTTP_200_OK)
 
 class CartItemViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -52,16 +64,33 @@ class CartItemViewSet(viewsets.ModelViewSet):
         cart, _ = Cart.objects.get_or_create(user=self.request.user)
         product = serializer.validated_data.get('product')
         quantity = serializer.validated_data.get('quantity', 1)
-        
+
+        if not product.is_available_for_sale:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("Product is currently not available for sale")
+
         # Check if item already exists in cart
         cart_item = CartItem.objects.filter(cart=cart, product=product).first()
+        current_cart_qty = cart_item.quantity if cart_item else 0
+        total_requested_qty = current_cart_qty + quantity
+
+        if total_requested_qty > product.stock_quantity:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(f"Insufficient stock. Available: {product.stock_quantity}")
+
         if cart_item:
-            cart_item.quantity += quantity
+            cart_item.quantity = total_requested_qty
             cart_item.save()
-            # We don't need to call serializer.save() here as we manually updated the object
-            # But the ViewSet expects a response based on the serializer.
-            # To handle this properly with ModelViewSet, we can use a custom create method or just update here.
-            # For simplicity in this common pattern:
             serializer.instance = cart_item
         else:
             serializer.save(cart=cart)
+
+    def perform_update(self, serializer):
+        product = serializer.instance.product
+        quantity = serializer.validated_data.get('quantity', serializer.instance.quantity)
+
+        if quantity > product.stock_quantity:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(f"Insufficient stock. Available: {product.stock_quantity}")
+        
+        serializer.save()

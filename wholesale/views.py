@@ -9,7 +9,7 @@ from django.db.models import Sum
 import uuid
 
 class WholesaleProfileViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = WholesaleProfileSerializer
 
     def get_queryset(self):
@@ -33,8 +33,21 @@ class WholesaleProfileViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class NegotiationRequestViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = NegotiationRequestSerializer
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != 'WHOLESALER':
+            return Response({"error": "Only wholesalers can request negotiations"}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            profile = request.user.wholesale_profile
+            if not profile.is_verified:
+                return Response({"error": "Your wholesale account is pending verification by admin."}, status=status.HTTP_403_FORBIDDEN)
+        except WholesaleProfile.DoesNotExist:
+             return Response({"error": "Please complete your wholesale profile before requesting negotiations."}, status=status.HTTP_400_BAD_REQUEST)
+             
+        return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user

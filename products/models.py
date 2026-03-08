@@ -122,12 +122,8 @@ class Product(models.Model):
             self.slug = unique_slug
         
         if not self.sku:
-            # For MongoDB, we shouldn't increment based on ObjectId. 
-            # Use count or timestamp-based generation instead.
-            count = Product.objects.count() + 1
-            import time
-            timestamp = int(time.time()) % 10000
-            self.sku = f"PROD-{timestamp:04d}-{count:03d}"
+            import uuid
+            self.sku = f"SKU-{uuid.uuid4().hex[:12].upper()}"
             
         super().save(*args, **kwargs)
     
@@ -255,32 +251,21 @@ def delete_cloudinary_image(sender, instance, **kwargs):
 @receiver(post_save, sender=PurchaseOrder)
 def handle_purchase_order_received(sender, instance, created, **kwargs):
     if not created and instance.status == 'RECEIVED':
-        with transaction.atomic():
-            product = Product.objects.select_for_update().get(id=instance.product.id)
-            prev_stock = product.stock_quantity
-            product.stock_quantity += instance.quantity
-            
-            # Auto-enable for sale once stock is physically received
-            if product.stock_quantity > 0:
-                product.is_available_for_sale = True
-                
-            product.save()
-
-            # Sync SupplierProduct stock
-            if product.supplier_product:
-                sp = product.supplier_product
-                sp.stock_quantity = max(0, sp.stock_quantity - instance.quantity)
-                sp.save()
-
-            # Record in Ledger
-            StockLedger.objects.create(
-                product=product,
-                entry_type='PURCHASE',
-                quantity=instance.quantity,
-                reference_id=f"PO-{instance.id}",
-                previous_stock=prev_stock,
-                current_stock=product.stock_quantity
-            )
+        from .services import StockService
+        
+        # Use StockService for atomic update and ledger entry
+        StockService.update_stock(
+            product_id=instance.product.id,
+            quantity_change=instance.quantity,
+            entry_type='PURCHASE',
+            reference_id=f"PO-{instance.id}"
+        )
+        
+        # Sync SupplierProduct stock (still needed separately as it's a different model)
+        if instance.product.supplier_product:
+            sp = instance.product.supplier_product
+            sp.stock_quantity = max(0, sp.stock_quantity - instance.quantity)
+            sp.save()
 
 
 class StockLedger(models.Model):

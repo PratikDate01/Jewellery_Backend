@@ -14,9 +14,10 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-this')
 
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
+# In production, this should be set to your actual domain
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'jewellery-backend-ewfw.onrender.com,localhost,127.0.0.1').split(',')
 
 
 # ========================
@@ -206,7 +207,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # CORS SETTINGS (React)
 # ========================
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
@@ -214,6 +215,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+if os.getenv('EXTRA_CORS_ORIGINS'):
+    CORS_ALLOWED_ORIGINS.extend(os.getenv('EXTRA_CORS_ORIGINS').split(','))
 
 CORS_ALLOWED_METHODS = [
     'DELETE',
@@ -243,15 +247,27 @@ CORS_EXPOSE_HEADERS = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://jwellery-frontend-opal.vercel.app',
-    'http://localhost:3000',
+    'https://jewellery-backend-ewfw.onrender.com',
     'http://localhost:5173',
-    'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
 ]
 
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
+# Security Hardening
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True') == 'True'
+    X_FRAME_OPTIONS = 'DENY'
+else:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_HTTPONLY = False
+
 CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 CSRF_FAILURE_VIEW = 'rest_framework.exceptions.invalid_request'
 

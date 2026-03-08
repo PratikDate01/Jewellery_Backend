@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Cart, CartItem
 from products.serializers import ProductSerializer
 from accounts.fields import ObjectIdField
-from accounts.serializers import BaseMongoSerializer
+from accounts.base_serializers import BaseMongoSerializer
 
 class CartItemSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)

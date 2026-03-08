@@ -12,10 +12,11 @@ from .serializers import (
 )
 from cart.models import Cart
 from products.models import Product, StockLedger
+from products.services import StockService
 from decimal import Decimal
 
 class OrderViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     search_fields = ['order_number', 'tracking_number', 'user__email']
     ordering_fields = ['created_at', 'status', 'net_amount']
@@ -99,7 +100,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         for item_data in order_items_data:
             product = item_data['product']
             qty = item_data['quantity']
-            prev_stock = product.stock_quantity
             
             OrderItem.objects.create(
                 order=order,
@@ -112,22 +112,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                 subtotal=item_data['subtotal']
             )
             
-            product.stock_quantity -= qty
-            
-            # Auto-disable if stock hits zero
-            if product.stock_quantity <= 0:
-                product.is_available_for_sale = False
-                
-            product.save()
-
-            # Record in Ledger
-            StockLedger.objects.create(
-                product=product,
+            # Use StockService for atomic update and ledger entry
+            StockService.update_stock(
+                product_id=product.id,
+                quantity_change=-qty,
                 entry_type='SALE',
-                quantity=-qty,
-                reference_id=f"ORD-{order.order_number}",
-                previous_stock=prev_stock,
-                current_stock=product.stock_quantity
+                reference_id=f"ORD-{order.order_number}"
             )
 
         cart.items.all().delete()

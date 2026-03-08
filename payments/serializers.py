@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Payment
 from accounts.fields import ObjectIdField
-from accounts.serializers import BaseMongoSerializer
+from accounts.base_serializers import BaseMongoSerializer
 
 class PaymentSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)

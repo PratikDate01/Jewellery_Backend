@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Order, OrderItem, OrderStatusLog, OrderTracking, OrderTimelineEvent, OrderAction
 from products.serializers import ProductSerializer
 from accounts.fields import ObjectIdField
-from accounts.serializers import BaseMongoSerializer
+from accounts.base_serializers import BaseMongoSerializer
 
 class OrderItemSerializer(BaseMongoSerializer):
     id = ObjectIdField(read_only=True)

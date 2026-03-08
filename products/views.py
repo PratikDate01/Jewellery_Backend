@@ -104,7 +104,7 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+    queryset = Product.objects.all().select_related('category', 'supplier').prefetch_related('images')
     serializer_class = ProductSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -221,8 +221,27 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def mark_received(self, request, pk=None):
         purchase_order = self.get_object()
-        purchase_order.status = 'RECEIVED'
-        purchase_order.save()
+        if purchase_order.status == 'RECEIVED':
+            return Response({'error': 'Already received'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        with transaction.atomic():
+            purchase_order.status = 'RECEIVED'
+            purchase_order.save()
+            
+            from .services import StockService
+            StockService.update_stock(
+                product_id=purchase_order.product.id,
+                quantity_change=purchase_order.quantity,
+                entry_type='PURCHASE',
+                reference_id=f"PO-{purchase_order.id}"
+            )
+            
+            # Sync SupplierProduct stock
+            if purchase_order.product.supplier_product:
+                sp = purchase_order.product.supplier_product
+                sp.stock_quantity = max(0, sp.stock_quantity - purchase_order.quantity)
+                sp.save()
+
         return Response({'status': 'Purchase order marked as received'}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
@@ -263,26 +282,16 @@ class CustomerOrderViewSet(viewsets.ModelViewSet):
             if not product.is_approved or not product.is_available_for_sale:
                 raise ValidationError("Product is not available for sale")
             
-            if product.stock_quantity < quantity:
-                raise ValidationError("Insufficient stock available")
-            
-            prev_stock = product.stock_quantity
-            product.stock_quantity -= quantity
-            if product.stock_quantity <= 0:
-                product.is_available_for_sale = False
-            product.save()
+            # Save first to get the instance ID for reference
+            instance = serializer.save(customer=self.request.user)
 
-            # Record in Ledger
-            StockLedger.objects.create(
-                product=product,
+            from .services import StockService
+            StockService.update_stock(
+                product_id=product.id,
+                quantity_change=-quantity,
                 entry_type='SALE',
-                quantity=-quantity,
-                reference_id="PENDING_ORDER", # Will be updated if we had the order ID here
-                previous_stock=prev_stock,
-                current_stock=product.stock_quantity
+                reference_id=f"CUST-ORD-{instance.id}"
             )
-            
-            serializer.save(customer=self.request.user)
     
     @action(detail=False, methods=['get'])
     def my_orders(self, request):
@@ -297,11 +306,17 @@ class CustomerOrderViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can only cancel your own orders")
         
         if order.status == 'PLACED':
-            product = order.product
-            product.stock_quantity += order.quantity
-            product.save()
-            order.status = 'CANCELLED'
-            order.save()
+            with transaction.atomic():
+                order.status = 'CANCELLED'
+                order.save()
+
+                from .services import StockService
+                StockService.update_stock(
+                    product_id=order.product.id,
+                    quantity_change=order.quantity,
+                    entry_type='CANCEL',
+                    reference_id=f"CUST-ORD-{order.id}"
+                )
             return Response({'status': 'Order cancelled'}, status=status.HTTP_200_OK)
         
         return Response(

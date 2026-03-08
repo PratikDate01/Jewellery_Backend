@@ -9,7 +9,7 @@ from orders.models import Order
 from django.db import transaction
 
 class PaymentViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = PaymentSerializer
 
     def get_queryset(self):
