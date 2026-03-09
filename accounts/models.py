@@ -41,7 +41,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ('ADMIN', 'Admin'),
         ('CUSTOMER', 'Customer'),
-        ('WHOLESALER', 'Wholesaler (Bulk Buyer)'),
         ('SUPPLIER', 'Supplier / Vendor'),
     )
 

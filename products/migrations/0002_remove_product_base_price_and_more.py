@@ -36,6 +36,10 @@ class Migration(migrations.Migration):
             model_name='product',
             name='vendor',
         ),
+        migrations.RemoveField(
+            model_name='product',
+            name='wholesale_price',
+        ),
         migrations.AddField(
             model_name='product',
             name='diamond_clarity',
@@ -95,11 +99,6 @@ class Migration(migrations.Migration):
             model_name='product',
             name='sku',
             field=models.CharField(default='', max_length=50, unique=True),
-        ),
-        migrations.AlterField(
-            model_name='product',
-            name='wholesale_price',
-            field=models.DecimalField(blank=True, decimal_places=2, default=0.0, max_digits=12, null=True),
         ),
         migrations.DeleteModel(
             name='ProductVariant',

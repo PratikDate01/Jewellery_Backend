@@ -81,7 +81,6 @@ class Product(models.Model):
     selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Price customer pays")
     
     retail_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    wholesale_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0.00)
     making_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=3.00)
     

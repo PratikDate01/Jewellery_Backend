@@ -23,7 +23,6 @@ class Migration(migrations.Migration):
                 ('slug', models.SlugField(blank=True, unique=True)),
                 ('description', models.TextField()),
                 ('base_price', models.DecimalField(decimal_places=2, max_digits=12)),
-                ('wholesale_price', models.DecimalField(blank=True, decimal_places=2, max_digits=12, null=True)),
                 ('discount_price', models.DecimalField(blank=True, decimal_places=2, max_digits=12, null=True)),
                 ('stock', models.PositiveIntegerField(default=0)),
                 ('sku', models.CharField(max_length=50, unique=True)),

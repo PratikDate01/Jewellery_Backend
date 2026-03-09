@@ -15,13 +15,6 @@ class IsSupplier(permissions.BasePermission):
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and request.user.role == 'SUPPLIER')
 
-class IsWholesaler(permissions.BasePermission):
-    """
-    Custom permission to only allow wholesaler users.
-    """
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.role == 'WHOLESALER')
-
 class IsCustomer(permissions.BasePermission):
     """
     Custom permission to only allow customer users.

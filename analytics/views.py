@@ -7,7 +7,6 @@ from products.models import Product, SupplierProduct, PurchaseOrder, SupplierPay
 from orders.models import Order, OrderItem
 from django.db import models
 from django.db.models import Sum, Count, Q
-from wholesale.models import WholesaleProfile, NegotiationRequest
 from suppliers.models import Supplier
 from orders.serializers import OrderListSerializer
 from products.serializers import ProductSerializer, SupplierProductSerializer
@@ -59,32 +58,6 @@ class AdminAnalyticsView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class WholesalerAnalyticsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        try:
-            user = request.user
-            if user.role != 'WHOLESALER':
-                return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
-            
-            profile, _ = WholesaleProfile.objects.get_or_create(user=user)
-            orders = Order.objects.filter(user=user)
-            
-            data = {
-                'stats': {
-                    'total_orders': orders.count(),
-                    'active_negotiations': NegotiationRequest.objects.filter(wholesaler=profile, status='PENDING').count(),
-                    'total_spent': float(orders.filter(payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0),
-                    'company_name': profile.company_name,
-                    'is_verified': profile.is_verified
-                },
-                'recent_orders': OrderListSerializer(orders.order_by('-created_at')[:5], many=True).data
-            }
-            return Response(data)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 class SupplierAnalyticsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -125,8 +98,6 @@ class UnifiedDashboardView(APIView):
                 return self._get_admin_data(request)
             elif role == 'SUPPLIER':
                 return self._get_supplier_data(request)
-            elif role == 'WHOLESALER':
-                return self._get_wholesaler_data(request)
             elif role == 'CUSTOMER':
                 return self._get_customer_data(request)
             else:
@@ -170,22 +141,6 @@ class UnifiedDashboardView(APIView):
             },
             'inventory': SupplierProductSerializer(supplier_products[:10], many=True).data,
             'recent_orders': [] # Suppliers might need recent POs here
-        })
-
-    def _get_wholesaler_data(self, request):
-        user = request.user
-        profile, _ = WholesaleProfile.objects.get_or_create(user=user)
-        orders = Order.objects.filter(user=user)
-        
-        return Response({
-            'role': 'WHOLESALER',
-            'stats': {
-                'total_orders': orders.count(),
-                'total_spent': float(orders.filter(payment_status='PAID').aggregate(Sum('net_amount'))['net_amount__sum'] or 0),
-                'active_negotiations': NegotiationRequest.objects.filter(wholesaler=profile, status='PENDING').count(),
-                'is_verified': profile.is_verified
-            },
-            'recent_orders': OrderListSerializer(orders.order_by('-created_at')[:5], many=True).data
         })
 
     def _get_customer_data(self, request):
