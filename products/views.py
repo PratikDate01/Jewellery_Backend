@@ -114,7 +114,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     parser_classes = (parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category__slug', 'purity', 'is_featured', 'is_approved']
+    filterset_fields = ['category__slug', 'category', 'purity', 'is_featured', 'is_approved']
     search_fields = ['name', 'description', 'sku']
     ordering_fields = ['selling_price', 'created_at']
 

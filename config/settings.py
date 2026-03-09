@@ -15,7 +15,7 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-this')
 
-DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DJANGO_DEBUG', os.getenv('DEBUG', 'False')) == 'True'
 
 # In production, this should be set to your actual domain
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'jewellery-backend-ewfw.onrender.com,localhost,127.0.0.1').split(',')
