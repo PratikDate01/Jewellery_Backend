@@ -24,6 +24,5 @@ class CartItem(models.Model):
 
     @property
     def subtotal(self):
-        # Role based pricing would be handled in the view/serializer usually, 
-        # but for simplicity we can assume retail_price here or handle it in logic.
-        return self.product.retail_price * self.quantity
+        # Use selling_price which is what the customer actually pays
+        return self.product.selling_price * self.quantity
