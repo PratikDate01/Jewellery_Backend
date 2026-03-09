@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, CustomerOrder, StockLedger, SupplierPayment
+from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, StockLedger, SupplierPayment
 from categories.models import Category
 from suppliers.models import Supplier
 from accounts.fields import ObjectIdField
@@ -248,28 +248,6 @@ class SupplierPaymentSerializer(BaseMongoSerializer):
         model = SupplierPayment
         fields = ('id', 'purchase_order', 'purchase_order_id', 'amount_paid', 'payment_method', 'transaction_id', 'payment_date', 'notes')
         read_only_fields = ('id', 'payment_date', 'purchase_order')
-
-
-class CustomerOrderSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
-    customer = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='CUSTOMER'), required=False)
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False)
-    customer_email = serializers.EmailField(source='customer.email', read_only=True)
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    product_image = serializers.SerializerMethodField(read_only=True)
-    
-    class Meta:
-        model = CustomerOrder
-        fields = ('id', 'customer', 'customer_email', 'product', 'product_name', 'product_image', 'quantity', 'total_price', 'status', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'customer', 'created_at', 'updated_at')
-    
-    def get_product_image(self, obj):
-        primary_image = obj.product.images.filter(is_primary=True).first()
-        if primary_image:
-            return primary_image.image.url
-        elif obj.product.images.exists():
-            return obj.product.images.first().image.url
-        return None
 
 
 class ProductDetailSerializer(BaseMongoSerializer):

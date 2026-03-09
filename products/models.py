@@ -213,30 +213,6 @@ class SupplierPayment(models.Model):
         return f"Payment of {self.amount_paid} for PO #{self.purchase_order.id}"
 
 
-class CustomerOrder(models.Model):
-    STATUS_CHOICES = (
-        ('PLACED', 'Placed'),
-        ('SHIPPED', 'Shipped'),
-        ('DELIVERED', 'Delivered'),
-        ('CANCELLED', 'Cancelled'),
-        ('RETURNED', 'Returned'),
-    )
-    
-    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_orders', limit_choices_to={'role': 'CUSTOMER'})
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='customer_orders')
-    quantity = models.PositiveIntegerField()
-    total_price = models.DecimalField(max_digits=12, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PLACED')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"Order #{self.id} - {self.customer.email} - {self.product.name}"
-
-
 @receiver(post_delete, sender=ProductImage)
 def delete_cloudinary_image(sender, instance, **kwargs):
     if instance.image:

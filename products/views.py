@@ -5,10 +5,10 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, CustomerOrder, StockLedger, SupplierPayment
+from .models import Product, SupplierProduct, ProductImage, PurchaseOrder, StockLedger, SupplierPayment
 from .serializers import (
     ProductSerializer, SupplierProductSerializer, ProductImageSerializer, 
-    PurchaseOrderSerializer, CustomerOrderSerializer, ProductDetailSerializer,
+    PurchaseOrderSerializer, ProductDetailSerializer,
     StockLedgerSerializer, SupplierPaymentSerializer
 )
 from .permissions import (
@@ -45,52 +45,78 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         return base_qs.filter(supplier_id=user.id)
 
     def perform_create(self, serializer):
+        # Check if supplier is verified
+        from suppliers.models import Supplier
+        supplier_profile = Supplier.objects.filter(user_id=self.request.user.id).first()
+        if not supplier_profile or not supplier_profile.is_verified:
+            raise PermissionDenied("Your account must be verified by admin before submitting products.")
+            
         serializer.save(supplier=self.request.user)
+
+    def perform_update(self, serializer):
+        # Check if supplier is verified
+        from suppliers.models import Supplier
+        supplier_profile = Supplier.objects.filter(user_id=self.request.user.id).first()
+        if not supplier_profile or not supplier_profile.is_verified:
+            raise PermissionDenied("Your account must be verified by admin before submitting products.")
+            
+        instance = serializer.save()
+        if instance.status == 'REJECTED':
+            instance.status = 'PENDING'
+            instance.save()
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         supplier_product = self.get_object()
-        supplier_product.status = 'APPROVED'
-        supplier_product.save()
+        selling_price = request.data.get('selling_price')
         
-        # Create or update store product
-        from suppliers.models import Supplier
-        supplier_profile = Supplier.objects.filter(user_id=supplier_product.supplier_id).first()
-        
-        product, created = Product.objects.get_or_create(
-            supplier_product=supplier_product,
-            defaults={
-                'name': supplier_product.name,
-                'description': supplier_product.description,
-                'category': supplier_product.category,
-                'cost_price': supplier_product.cost_price,
-                'selling_price': supplier_product.cost_price * 1.2, # Default 20% markup
-                'stock_quantity': 0, 
-                'purity': supplier_product.purity,
-                'gold_weight': supplier_product.gold_weight,
-                'diamond_clarity': supplier_product.diamond_clarity,
-                'supplier_user_id': supplier_product.supplier_id,
-                'supplier': supplier_profile,
-                'is_approved': True
-            }
-        )
-        
-        if not created:
-            product.name = supplier_product.name
-            product.description = supplier_product.description
-            product.cost_price = supplier_product.cost_price
-            product.supplier_user_id = supplier_product.supplier_id
-            product.supplier = supplier_profile
-            product.save()
+        if not selling_price:
+            return Response({'error': 'selling_price is required for approval'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Copy images if not already copied
-        for img in supplier_product.images.all():
-            if not ProductImage.objects.filter(product=product, image=img.image).exists():
-                ProductImage.objects.create(
-                    product=product,
-                    image=img.image,
-                    is_primary=img.is_primary
-                )
+        with transaction.atomic():
+            supplier_product.status = 'APPROVED'
+            supplier_product.save()
+            
+            # Create or update store product
+            from suppliers.models import Supplier
+            supplier_profile = Supplier.objects.filter(user_id=supplier_product.supplier_id).first()
+            
+            product, created = Product.objects.get_or_create(
+                supplier_product=supplier_product,
+                defaults={
+                    'name': supplier_product.name,
+                    'description': supplier_product.description,
+                    'category': supplier_product.category,
+                    'cost_price': supplier_product.cost_price,
+                    'selling_price': selling_price,
+                    'stock_quantity': 0, 
+                    'purity': supplier_product.purity,
+                    'gold_weight': supplier_product.gold_weight,
+                    'diamond_clarity': supplier_product.diamond_clarity,
+                    'supplier_user_id': supplier_product.supplier_id,
+                    'supplier': supplier_profile,
+                    'is_approved': True
+                }
+            )
+            
+            if not created:
+                product.name = supplier_product.name
+                product.description = supplier_product.description
+                product.cost_price = supplier_product.cost_price
+                product.selling_price = selling_price
+                product.supplier_user_id = supplier_product.supplier_id
+                product.supplier = supplier_profile
+                product.is_approved = True
+                product.save()
+
+            # Copy images if not already copied
+            for img in supplier_product.images.all():
+                if not ProductImage.objects.filter(product=product, image=img.image).exists():
+                    ProductImage.objects.create(
+                        product=product,
+                        image=img.image,
+                        is_primary=img.is_primary
+                    )
 
         return Response({'status': 'approved', 'product_id': str(product.id)})
 
@@ -256,79 +282,6 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(orders, many=True)
         return Response(serializer.data)
 
-
-class CustomerOrderViewSet(viewsets.ModelViewSet):
-    queryset = CustomerOrder.objects.all()
-    serializer_class = CustomerOrderSerializer
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['status', 'product']
-    ordering_fields = ['created_at', '-created_at']
-    
-    def get_permissions(self):
-        if self.action in ['create']:
-            return [IsCustomer()]
-        elif self.action == 'my_orders':
-            return [IsCustomer()]
-        return [IsAdmin()]
-    
-    def get_queryset(self):
-        base_qs = CustomerOrder.objects.all().select_related('customer', 'product')
-        if self.request.user.is_authenticated:
-            if self.request.user.role == 'ADMIN':
-                return base_qs
-            elif self.request.user.role == 'CUSTOMER':
-                return base_qs.filter(customer=self.request.user)
-        return CustomerOrder.objects.none()
-    
-    def perform_create(self, serializer):
-        with transaction.atomic():
-            product = Product.objects.select_for_update().get(id=serializer.validated_data['product'].id)
-            quantity = serializer.validated_data['quantity']
-            
-            if not product.is_approved or not product.is_available_for_sale:
-                raise ValidationError("Product is not available for sale")
-            
-            # Save first to get the instance ID for reference
-            instance = serializer.save(customer=self.request.user)
-
-            from .services import StockService
-            StockService.update_stock(
-                product_id=product.id,
-                quantity_change=-quantity,
-                entry_type='SALE',
-                reference_id=f"CUST-ORD-{instance.id}"
-            )
-    
-    @action(detail=False, methods=['get'])
-    def my_orders(self, request):
-        orders = CustomerOrder.objects.filter(customer=request.user)
-        serializer = self.get_serializer(orders, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
-    def cancel_order(self, request, pk=None):
-        order = self.get_object()
-        if order.customer != request.user and request.user.role != 'ADMIN':
-            raise PermissionDenied("You can only cancel your own orders")
-        
-        if order.status == 'PLACED':
-            with transaction.atomic():
-                order.status = 'CANCELLED'
-                order.save()
-
-                from .services import StockService
-                StockService.update_stock(
-                    product_id=order.product.id,
-                    quantity_change=order.quantity,
-                    entry_type='CANCEL',
-                    reference_id=f"CUST-ORD-{order.id}"
-                )
-            return Response({'status': 'Order cancelled'}, status=status.HTTP_200_OK)
-        
-        return Response(
-            {'error': 'Can only cancel PLACED orders'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
 class StockLedgerViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StockLedger.objects.all().select_related('product')
