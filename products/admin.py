@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, ProductImage, PurchaseOrder, CustomerOrder, SupplierPayment
+from .models import Product, ProductImage, PurchaseOrder, SupplierPayment
 
 class SupplierPaymentInline(admin.TabularInline):
     model = SupplierPayment
@@ -59,19 +59,3 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
     def mark_received(self, request, queryset):
         queryset.update(status='RECEIVED')
     mark_received.short_description = "Mark selected purchase orders as received"
-
-@admin.register(CustomerOrder)
-class CustomerOrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'customer', 'product', 'quantity', 'total_price', 'status', 'created_at']
-    list_filter = ['status', 'customer', 'created_at']
-    search_fields = ['id', 'customer__email', 'product__name']
-    readonly_fields = ['created_at', 'updated_at']
-    actions = ['mark_shipped', 'mark_delivered']
-    
-    def mark_shipped(self, request, queryset):
-        queryset.update(status='SHIPPED')
-    mark_shipped.short_description = "Mark selected orders as shipped"
-    
-    def mark_delivered(self, request, queryset):
-        queryset.update(status='DELIVERED')
-    mark_delivered.short_description = "Mark selected orders as delivered"

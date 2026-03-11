@@ -136,10 +136,11 @@ class UnifiedDashboardView(APIView):
             'stats': {
                 'total_products': supplier_products.count(),
                 'approved_products': supplier_products.filter(status='APPROVED').count(),
+                'total_earnings': float(total_rev),
                 'total_revenue': float(total_rev),
                 'pending_balance': float(total_rev) - float(paid_amt)
             },
-            'inventory': SupplierProductSerializer(supplier_products[:10], many=True).data,
+            'inventory': SupplierProductSerializer(supplier_products[:50], many=True).data,
             'recent_orders': [] # Suppliers might need recent POs here
         })
 
