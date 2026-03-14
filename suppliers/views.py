@@ -25,17 +25,26 @@ class SupplierProfileViewSet(viewsets.ModelViewSet):
 
     def get_object(self):
         # If accessing by ID (standard ModelViewSet behavior)
-        if self.kwargs.get('pk'):
-            return super().get_object()
+        pk = self.kwargs.get('pk')
+        if pk:
+            try:
+                return Supplier.objects.get(pk=pk)
+            except (Supplier.DoesNotExist, ValueError):
+                # Fallback to default behavior if PK is invalid
+                return super().get_object()
             
         # Fallback for "my-profile" logic
         if not self.request.user.is_authenticated:
             raise permissions.NotAuthenticated()
-        obj, created = Supplier.objects.get_or_create(
-            user=self.request.user,
-            defaults={'company_name': self.request.user.name or self.request.user.email}
-        )
-        return obj
+            
+        # Optimization: check exists first before get_or_create to avoid unnecessary writes on every fetch
+        profile = Supplier.objects.filter(user=self.request.user).first()
+        if not profile:
+            profile = Supplier.objects.create(
+                user=self.request.user,
+                company_name=self.request.user.name or self.request.user.email
+            )
+        return profile
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def verify(self, request, pk=None):
