@@ -12,11 +12,23 @@ class SupplierProfileViewSet(viewsets.ModelViewSet):
     serializer_class = SupplierSerializer
 
     def get_queryset(self):
-        if not self.request.user.is_authenticated:
+        user = self.request.user
+        if not user.is_authenticated:
             return Supplier.objects.none()
-        return Supplier.objects.filter(user=self.request.user)
+        
+        # Admins can see ALL suppliers
+        if user.role == 'ADMIN':
+            return Supplier.objects.all()
+            
+        # Suppliers can only see their own profile
+        return Supplier.objects.filter(user=user)
 
     def get_object(self):
+        # If accessing by ID (standard ModelViewSet behavior)
+        if self.kwargs.get('pk'):
+            return super().get_object()
+            
+        # Fallback for "my-profile" logic
         if not self.request.user.is_authenticated:
             raise permissions.NotAuthenticated()
         obj, created = Supplier.objects.get_or_create(
@@ -24,6 +36,16 @@ class SupplierProfileViewSet(viewsets.ModelViewSet):
             defaults={'company_name': self.request.user.name or self.request.user.email}
         )
         return obj
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def verify(self, request, pk=None):
+        if request.user.role != 'ADMIN':
+            return Response({"detail": "Only admins can verify suppliers"}, status=status.HTTP_403_FORBIDDEN)
+            
+        supplier = self.get_object()
+        supplier.is_verified = True
+        supplier.save()
+        return Response({"status": "verified", "company_name": supplier.company_name})
 
     @action(detail=False, methods=['get'])
     def my_profile(self, request):
