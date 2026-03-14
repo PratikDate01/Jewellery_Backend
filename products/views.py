@@ -52,9 +52,28 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Check if supplier is verified
         from suppliers.models import Supplier
-        supplier_profile = Supplier.objects.filter(user_id=self.request.user.id).first()
-        if not supplier_profile or not supplier_profile.is_verified:
-            raise PermissionDenied("Your account must be verified by admin before submitting products.")
+        
+        # If user is admin, allow them to act as a supplier for testing or manual entries
+        if self.request.user.role == 'ADMIN':
+            # Create a verified supplier profile for the admin if it doesn't exist
+            Supplier.objects.get_or_create(
+                user=self.request.user,
+                defaults={
+                    'company_name': f"Admin Store ({self.request.user.name or self.request.user.email})",
+                    'is_verified': True
+                }
+            )
+            serializer.save(supplier=self.request.user)
+            return
+
+        # For normal suppliers, ensure they have a profile and are verified
+        supplier_profile, created = Supplier.objects.get_or_create(
+            user=self.request.user,
+            defaults={'company_name': self.request.user.name or self.request.user.email}
+        )
+        
+        if not supplier_profile.is_verified:
+            raise PermissionDenied("Your supplier account must be verified by admin before submitting products.")
             
         serializer.save(supplier=self.request.user)
 
@@ -66,8 +85,11 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         # Check if supplier is verified
         from suppliers.models import Supplier
         supplier_profile = Supplier.objects.filter(user_id=self.request.user.id).first()
-        if not supplier_profile or not supplier_profile.is_verified:
-            raise PermissionDenied("Your account must be verified by admin before submitting products.")
+        
+        # Admin can always update
+        if self.request.user.role != 'ADMIN':
+            if not supplier_profile or not supplier_profile.is_verified:
+                raise PermissionDenied("Your account must be verified by admin before submitting products.")
             
         instance = serializer.save()
         if instance.status == 'REJECTED':
