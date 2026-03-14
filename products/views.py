@@ -36,13 +36,18 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        base_qs = SupplierProduct.objects.all()
-        
         if not user or not user.is_authenticated:
             return SupplierProduct.objects.none()
+            
+        base_qs = SupplierProduct.objects.all()
+        
         if user.role == 'ADMIN':
             return base_qs
-        return base_qs.filter(supplier_id=user.id)
+        if user.role == 'SUPPLIER':
+            return base_qs.filter(supplier_id=user.id)
+        
+        # Customers and others see nothing
+        return SupplierProduct.objects.none()
 
     def perform_create(self, serializer):
         # Check if supplier is verified
@@ -54,6 +59,10 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         serializer.save(supplier=self.request.user)
 
     def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.status == 'APPROVED' and self.request.user.role == 'SUPPLIER':
+            raise PermissionDenied("Approved products cannot be modified by suppliers.")
+            
         # Check if supplier is verified
         from suppliers.models import Supplier
         supplier_profile = Supplier.objects.filter(user_id=self.request.user.id).first()
@@ -73,52 +82,12 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         if not selling_price:
             return Response({'error': 'selling_price is required for approval'}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
-            supplier_product.status = 'APPROVED'
-            supplier_product.save()
-            
-            # Create or update store product
-            from suppliers.models import Supplier
-            supplier_profile = Supplier.objects.filter(user_id=supplier_product.supplier_id).first()
-            
-            product, created = Product.objects.get_or_create(
-                supplier_product=supplier_product,
-                defaults={
-                    'name': supplier_product.name,
-                    'description': supplier_product.description,
-                    'category': supplier_product.category,
-                    'cost_price': supplier_product.cost_price,
-                    'selling_price': selling_price,
-                    'stock_quantity': 0, 
-                    'purity': supplier_product.purity,
-                    'gold_weight': supplier_product.gold_weight,
-                    'diamond_clarity': supplier_product.diamond_clarity,
-                    'supplier_user_id': supplier_product.supplier_id,
-                    'supplier': supplier_profile,
-                    'is_approved': True
-                }
-            )
-            
-            if not created:
-                product.name = supplier_product.name
-                product.description = supplier_product.description
-                product.cost_price = supplier_product.cost_price
-                product.selling_price = selling_price
-                product.supplier_user_id = supplier_product.supplier_id
-                product.supplier = supplier_profile
-                product.is_approved = True
-                product.save()
-
-            # Copy images if not already copied
-            for img in supplier_product.images.all():
-                if not ProductImage.objects.filter(product=product, image=img.image).exists():
-                    ProductImage.objects.create(
-                        product=product,
-                        image=img.image,
-                        is_primary=img.is_primary
-                    )
-
-        return Response({'status': 'approved', 'product_id': str(product.id)})
+        try:
+            from .services import ProductService
+            product = ProductService.approve_supplier_product(supplier_product.id, selling_price)
+            return Response({'status': 'approved', 'product_id': str(product.id)})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -239,12 +208,18 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         return [IsAdmin()]
     
     def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return PurchaseOrder.objects.none()
+            
         base_qs = PurchaseOrder.objects.all().select_related('supplier', 'product')
-        if self.request.user.is_authenticated:
-            if self.request.user.role == 'ADMIN':
-                return base_qs
-            elif self.request.user.role == 'SUPPLIER':
-                return base_qs.filter(supplier=self.request.user)
+        
+        if user.role == 'ADMIN':
+            return base_qs
+        elif user.role == 'SUPPLIER':
+            return base_qs.filter(supplier=user)
+            
+        # Customers see nothing
         return PurchaseOrder.objects.none()
     
     def perform_create(self, serializer):
@@ -256,25 +231,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         if purchase_order.status == 'RECEIVED':
             return Response({'error': 'Already received'}, status=status.HTTP_400_BAD_REQUEST)
             
-        with transaction.atomic():
-            purchase_order.status = 'RECEIVED'
-            purchase_order.save()
-            
+        try:
             from .services import StockService
-            StockService.update_stock(
-                product_id=purchase_order.product.id,
-                quantity_change=purchase_order.quantity,
-                entry_type='PURCHASE',
-                reference_id=f"PO-{purchase_order.id}"
-            )
-            
-            # Sync SupplierProduct stock
-            if purchase_order.product.supplier_product:
-                sp = purchase_order.product.supplier_product
-                sp.stock_quantity = max(0, sp.stock_quantity - purchase_order.quantity)
-                sp.save()
-
-        return Response({'status': 'Purchase order marked as received'}, status=status.HTTP_200_OK)
+            StockService.receive_purchase_order(purchase_order.id)
+            return Response({'status': 'Purchase order marked as received'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['get'])
     def supplier_orders(self, request):

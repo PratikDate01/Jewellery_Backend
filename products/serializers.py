@@ -28,10 +28,6 @@ class SupplierProductSerializer(BaseMongoSerializer):
     category_name = serializers.SerializerMethodField()
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
     
-    # Map to names used in frontend
-    price = serializers.DecimalField(source='cost_price', max_digits=12, decimal_places=2)
-    available_quantity = serializers.IntegerField(source='stock_quantity')
-    
     uploaded_images = serializers.ListField(
         child=serializers.FileField(max_length=10000000, allow_empty_file=False),
         write_only=True,
@@ -41,10 +37,11 @@ class SupplierProductSerializer(BaseMongoSerializer):
     class Meta:
         model = SupplierProduct
         fields = (
-            'id', 'supplier', 'name', 'description', 'price', 'available_quantity', 
-            'category', 'category_name', 'images', 'uploaded_images',
-            'purity', 'gold_weight', 'diamond_clarity', 'status', 
-            'admin_notes', 'created_at', 'updated_at'
+            'id', 'supplier', 'name', 'description', 'category', 'category_name', 
+            'metal_type', 'weight', 'supplier_price', 'suggested_retail_price', 
+            'available_stock', 'supplier_sku', 'images', 'uploaded_images',
+            'purity', 'diamond_clarity', 'status', 'admin_notes', 
+            'created_at', 'updated_at'
         )
         read_only_fields = ('supplier', 'created_at', 'updated_at', 'status', 'admin_notes')
 
@@ -59,7 +56,7 @@ class SupplierProductSerializer(BaseMongoSerializer):
                     internal_data[key] = data.get(key)
             
             # Clean empty strings for specific fields
-            for field in ['category', 'gold_weight', 'price', 'available_quantity']:
+            for field in ['category', 'weight', 'supplier_price', 'suggested_retail_price', 'available_stock']:
                 if field in internal_data and (internal_data[field] == '' or internal_data[field] == 'null' or internal_data[field] == 'undefined'):
                     internal_data[field] = None
             
@@ -88,12 +85,7 @@ class ProductSerializer(BaseMongoSerializer):
     available_quantity = serializers.IntegerField(source='stock_quantity')
     is_active = serializers.BooleanField(source='is_enabled', default=True, required=False)
     
-    purity = serializers.CharField(required=False)
-    diamond_clarity = serializers.CharField(required=False, allow_null=True)
-    is_featured = serializers.BooleanField(required=False)
-    is_approved = serializers.BooleanField(required=False)
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
-    gold_weight = serializers.DecimalField(max_digits=10, decimal_places=3, required=False)
     
     # This handles multiple images during creation/update
     uploaded_images = serializers.ListField(
@@ -114,7 +106,9 @@ class ProductSerializer(BaseMongoSerializer):
         fields = (
             'id', 'name', 'slug', 'description', 'price', 'available_quantity', 
             'is_active', 'sku', 'category', 'category_name', 'images', 
-            'uploaded_images', 'keep_images', 'purity', 'gold_weight', 'diamond_clarity', 
+            'uploaded_images', 'keep_images', 'metal_type', 'weight',
+            'purity', 'diamond_clarity', 'cost_price', 'selling_price',
+            'retail_price', 'making_charges', 'gst_percentage',
             'is_featured', 'is_approved', 'created_at', 'updated_at', 'supplier_name'
         )
         read_only_fields = ('slug', 'sku', 'created_at', 'updated_at')
@@ -141,7 +135,7 @@ class ProductSerializer(BaseMongoSerializer):
                     internal_data[key] = data.get(key)
             
             # Special handling for numeric/related fields that might be empty strings
-            for field in ['category', 'supplier', 'gold_weight', 'price', 'available_quantity']:
+            for field in ['category', 'supplier', 'weight', 'price', 'available_quantity', 'cost_price', 'selling_price']:
                 if field in internal_data and (internal_data[field] == '' or internal_data[field] == 'null' or internal_data[field] == 'undefined'):
                     internal_data[field] = None
                     
@@ -155,6 +149,17 @@ class ProductSerializer(BaseMongoSerializer):
             return super().to_internal_value(internal_data)
         
         return super().to_internal_value(data)
+
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            if request.user.role != 'ADMIN':
+                representation.pop('cost_price', None)
+        else:
+            representation.pop('cost_price', None)
+        return representation
 
     def get_category_name(self, obj):
         return obj.category.name if obj.category else "Uncategorized"
@@ -232,10 +237,10 @@ class PurchaseOrderSerializer(BaseMongoSerializer):
         model = PurchaseOrder
         fields = (
             'id', 'supplier', 'supplier_email', 'product', 'product_name', 'product_sku', 
-            'quantity', 'total_cost', 'status', 'amount_paid', 'remaining_amount', 
-            'payment_status', 'created_at', 'updated_at'
+            'quantity', 'unit_cost_price', 'total_cost', 'status', 'amount_paid', 
+            'remaining_amount', 'payment_status', 'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'total_cost')
 
 
 class SupplierPaymentSerializer(BaseMongoSerializer):
@@ -265,13 +270,24 @@ class ProductDetailSerializer(BaseMongoSerializer):
         model = Product
         fields = (
             'id', 'name', 'slug', 'description', 'price', 'cost_price', 'selling_price', 
+            'retail_price', 'making_charges', 'gst_percentage',
             'margin', 'margin_percentage', 'stock_quantity', 'sku', 'category', 
-            'category_name', 'images', 'purity', 'gold_weight', 'diamond_clarity', 
+            'category_name', 'images', 'metal_type', 'weight', 'purity', 'diamond_clarity', 
             'is_featured', 'is_approved', 'supplier_user', 'supplier_email',
             'created_at', 'updated_at'
         )
         read_only_fields = ('id', 'slug', 'sku', 'created_at', 'updated_at')
     
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            if request.user.role != 'ADMIN':
+                representation.pop('cost_price', None)
+        else:
+            representation.pop('cost_price', None)
+        return representation
+
     def get_category_name(self, obj):
         return obj.category.name if obj.category else "Uncategorized"
     

@@ -15,14 +15,27 @@ class SupplierProduct(models.Model):
         ('REJECTED', 'Rejected'),
     )
 
+    METAL_CHOICES = (
+        ('GOLD', 'Gold'),
+        ('SILVER', 'Silver'),
+        ('PLATINUM', 'Platinum'),
+    )
+
     supplier = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='supplier_products', limit_choices_to={'role': 'SUPPLIER'})
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='supplier_products')
     name = models.CharField(max_length=255)
     description = models.TextField()
     
-    cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    metal_type = models.CharField(max_length=20, choices=METAL_CHOICES, default='GOLD')
+    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0.00)
     
-    gold_weight = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0.00)
+    supplier_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Cost price from supplier")
+    suggested_retail_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    available_stock = models.PositiveIntegerField(default=0)
+    supplier_sku = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Keep some of the old fields if they are useful or for compatibility, but the prompt asks for specific fields
     purity = models.CharField(max_length=10, choices=(
         ('18K', '18 Karat'),
         ('22K', '22 Karat'),
@@ -40,9 +53,7 @@ class SupplierProduct(models.Model):
         ('I1', 'Included 1'),
     ), null=True, blank=True)
     
-    stock_quantity = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    
     admin_notes = models.TextField(blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -52,6 +63,12 @@ class SupplierProduct(models.Model):
         return f"{self.name} ({self.supplier.email})"
 
 class Product(models.Model):
+    METAL_CHOICES = (
+        ('GOLD', 'Gold'),
+        ('SILVER', 'Silver'),
+        ('PLATINUM', 'Platinum'),
+    )
+
     PURITY_CHOICES = (
         ('18K', '18 Karat'),
         ('22K', '22 Karat'),
@@ -77,6 +94,9 @@ class Product(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField()
     
+    metal_type = models.CharField(max_length=20, choices=METAL_CHOICES, default='GOLD')
+    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0.00)
+    
     cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Snapshot of the price admin pays to supplier")
     selling_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Price customer pays")
     
@@ -84,7 +104,6 @@ class Product(models.Model):
     making_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     gst_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=3.00)
     
-    gold_weight = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0.00)
     purity = models.CharField(max_length=10, choices=PURITY_CHOICES, default='22K')
     diamond_clarity = models.CharField(max_length=10, choices=CLARITY_CHOICES, null=True, blank=True)
     
@@ -102,6 +121,7 @@ class Product(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
     class Meta:
         indexes = [
@@ -154,7 +174,6 @@ class ProductImage(models.Model):
 class PurchaseOrder(models.Model):
     STATUS_CHOICES = (
         ('PENDING', 'Pending'),
-        ('APPROVED', 'Approved'),
         ('RECEIVED', 'Received'),
         ('CANCELLED', 'Cancelled'),
     )
@@ -162,13 +181,20 @@ class PurchaseOrder(models.Model):
     supplier = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='purchase_orders', limit_choices_to={'role': 'SUPPLIER'})
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='purchase_orders')
     quantity = models.PositiveIntegerField()
-    total_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    unit_cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if self.unit_cost_price and self.quantity:
+            self.total_cost = self.unit_cost_price * self.quantity
+        super().save(*args, **kwargs)
     
     @property
     def amount_paid(self):
@@ -221,26 +247,6 @@ def delete_cloudinary_image(sender, instance, **kwargs):
             cloudinary.uploader.destroy(public_id)
         except Exception as e:
             print(f"Error deleting image from Cloudinary: {e}")
-
-
-@receiver(post_save, sender=PurchaseOrder)
-def handle_purchase_order_received(sender, instance, created, **kwargs):
-    if not created and instance.status == 'RECEIVED':
-        from .services import StockService
-        
-        # Use StockService for atomic update and ledger entry
-        StockService.update_stock(
-            product_id=instance.product.id,
-            quantity_change=instance.quantity,
-            entry_type='PURCHASE',
-            reference_id=f"PO-{instance.id}"
-        )
-        
-        # Sync SupplierProduct stock (still needed separately as it's a different model)
-        if instance.product.supplier_product:
-            sp = instance.product.supplier_product
-            sp.stock_quantity = max(0, sp.stock_quantity - instance.quantity)
-            sp.save()
 
 
 class StockLedger(models.Model):
