@@ -99,10 +99,11 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         supplier_product = self.get_object()
-        selling_price = request.data.get('selling_price')
+        # Allow passing selling_price, or default to suggested_retail_price
+        selling_price = request.data.get('selling_price') or supplier_product.suggested_retail_price
         
-        if not selling_price:
-            return Response({'error': 'selling_price is required for approval'}, status=status.HTTP_400_BAD_REQUEST)
+        if not selling_price or float(selling_price) <= 0:
+            return Response({'error': 'A valid selling price is required for approval'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             from .services import ProductService
