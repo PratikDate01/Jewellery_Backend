@@ -103,6 +103,9 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         selling_price = request.data.get('selling_price') or supplier_product.suggested_retail_price
         
         if not selling_price or float(selling_price) <= 0:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Invalid selling price for approval: {selling_price}")
             return Response({'error': 'A valid selling price is required for approval'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -110,6 +113,9 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
             product = ProductService.approve_supplier_product(supplier_product.id, selling_price)
             return Response({'status': 'approved', 'product_id': str(product.id)})
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Product approval failed:")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'])
