@@ -28,6 +28,11 @@ class SupplierProductSerializer(BaseMongoSerializer):
     category_name = serializers.SerializerMethodField()
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
     
+    # Aliases for frontend consistency
+    available_quantity = serializers.IntegerField(source='available_stock')
+    price = serializers.DecimalField(source='supplier_price', max_digits=12, decimal_places=2, required=False)
+    gold_weight = serializers.DecimalField(source='weight', max_digits=10, decimal_places=3, required=False)
+    
     uploaded_images = serializers.ListField(
         child=serializers.FileField(max_length=10000000, allow_empty_file=False),
         write_only=True,
@@ -38,8 +43,8 @@ class SupplierProductSerializer(BaseMongoSerializer):
         model = SupplierProduct
         fields = (
             'id', 'supplier', 'name', 'description', 'category', 'category_name', 
-            'metal_type', 'weight', 'supplier_price', 'suggested_retail_price', 
-            'available_stock', 'supplier_sku', 'images', 'uploaded_images',
+            'metal_type', 'weight', 'gold_weight', 'supplier_price', 'price', 'suggested_retail_price', 
+            'available_stock', 'available_quantity', 'supplier_sku', 'images', 'uploaded_images',
             'purity', 'diamond_clarity', 'status', 'admin_notes', 
             'created_at', 'updated_at'
         )
@@ -56,7 +61,7 @@ class SupplierProductSerializer(BaseMongoSerializer):
                     internal_data[key] = data.get(key)
             
             # Clean empty strings for specific fields
-            for field in ['category', 'weight', 'supplier_price', 'suggested_retail_price', 'available_stock']:
+            for field in ['category', 'weight', 'gold_weight', 'supplier_price', 'price', 'suggested_retail_price', 'available_stock', 'available_quantity']:
                 if field in internal_data and (internal_data[field] == '' or internal_data[field] == 'null' or internal_data[field] == 'undefined'):
                     internal_data[field] = None
             
