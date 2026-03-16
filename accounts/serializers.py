@@ -10,7 +10,7 @@ from bson import ObjectId
 User = get_user_model()
 
 class UserSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     class Meta:
         model = User
         fields = ('id', 'email', 'name', 'role', 'phone', 'address', 'profile_image', 'date_joined')

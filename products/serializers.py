@@ -23,7 +23,7 @@ class ProductImageSerializer(BaseMongoSerializer):
         return None
 
 class SupplierProductSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
@@ -80,7 +80,7 @@ class SupplierProductSerializer(BaseMongoSerializer):
         return product
 
 class ProductSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     category_name = serializers.SerializerMethodField()
     supplier_name = serializers.SerializerMethodField()
@@ -227,7 +227,7 @@ class CategorySerializer(BaseMongoSerializer):
 
 
 class PurchaseOrderSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     supplier = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='SUPPLIER'), required=False)
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False)
     supplier_email = serializers.EmailField(source='supplier.email', read_only=True)
@@ -249,7 +249,7 @@ class PurchaseOrderSerializer(BaseMongoSerializer):
 
 
 class SupplierPaymentSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     purchase_order_id = serializers.PrimaryKeyRelatedField(
         queryset=PurchaseOrder.objects.all(), source='purchase_order', write_only=True
     )
@@ -261,7 +261,7 @@ class SupplierPaymentSerializer(BaseMongoSerializer):
 
 
 class ProductDetailSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     category = ObjectIdField(required=False, allow_null=True)
     supplier_user = ObjectIdField(required=False, allow_null=True)
     images = ProductImageSerializer(many=True, read_only=True)
@@ -306,7 +306,7 @@ class ProductDetailSerializer(BaseMongoSerializer):
         return obj.margin_percentage
 
 class StockLedgerSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     entry_type_display = serializers.CharField(source='get_entry_type_display', read_only=True)
