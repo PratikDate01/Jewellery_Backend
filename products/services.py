@@ -79,8 +79,6 @@ class ProductService:
         selling_price = Decimal(str(selling_price))
         
         supplier_product = SupplierProduct.objects.get(id=supplier_product_id)
-        supplier_product.status = 'APPROVED'
-        supplier_product.save()
         
         from suppliers.models import Supplier as SupplierProfile
         supplier_profile = SupplierProfile.objects.filter(user_id=supplier_product.supplier_id).first()
@@ -102,7 +100,7 @@ class ProductService:
                 stock_quantity=0, 
                 purity=supplier_product.purity,
                 diamond_clarity=supplier_product.diamond_clarity,
-                supplier_user_id=supplier_product.supplier_id,
+                supplier_user=supplier_product.supplier,
                 supplier=supplier_profile,
                 is_approved=True,
                 is_available_for_sale=False
@@ -121,14 +119,21 @@ class ProductService:
             product.retail_price = supplier_product.suggested_retail_price
             product.purity = supplier_product.purity
             product.diamond_clarity = supplier_product.diamond_clarity
-            product.supplier_user_id = supplier_product.supplier_id
+            product.supplier_user = supplier_product.supplier
             product.supplier = supplier_profile
             product.is_approved = True
             product.save()
 
+        # Update status only after successful product creation/update
+        supplier_product.status = 'APPROVED'
+        supplier_product.save()
+
         # Copy images
         for img in supplier_product.images.all():
-            if not ProductImage.objects.filter(product=product, image=img.image).exists():
+            # In MongoDB, comparing CloudinaryField directly in filter might be unreliable.
+            # Using the image name/string which typically contains the public_id
+            img_path = str(img.image)
+            if not ProductImage.objects.filter(product=product, image=img_path).exists():
                 ProductImage.objects.create(
                     product=product,
                     image=img.image,

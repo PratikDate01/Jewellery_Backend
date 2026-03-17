@@ -168,7 +168,11 @@ class ProductImage(models.Model):
     is_primary = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Image for {self.product.name}"
+        if self.product:
+            return f"Image for {self.product.name}"
+        if self.supplier_product:
+            return f"Supplier Image for {self.supplier_product.name}"
+        return f"Image {self.id}"
 
 
 class PurchaseOrder(models.Model):
