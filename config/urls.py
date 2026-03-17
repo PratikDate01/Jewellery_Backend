@@ -8,23 +8,14 @@ from django.contrib.auth import get_user_model
 
 def health_check(request):
     """
-    Enhanced health check that ensures DB connection is also warmed up.
-    Helps prevent timeouts on Render cold starts.
+    Lightweight health check to signal the server is awake.
+    Does not block on DB to avoid cold start timeouts.
     """
-    try:
-        # Simple DB check - count users or similar lightweight query
-        User = get_user_model()
-        User.objects.first() 
-        return JsonResponse({
-            "status": "healthy", 
-            "service": "jewellery-marketplace-backend",
-            "db": "connected"
-        })
-    except Exception as e:
-        return JsonResponse({
-            "status": "degraded",
-            "error": str(e)
-        }, status=503)
+    return JsonResponse({
+        "status": "healthy", 
+        "service": "jewellery-marketplace-backend",
+        "awake": True
+    })
 
 urlpatterns = [
     path('health/', health_check, name='health_check'),
