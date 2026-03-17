@@ -196,8 +196,10 @@ class PurchaseOrder(models.Model):
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
-        if self.unit_cost_price and self.quantity:
-            self.total_cost = self.unit_cost_price * self.quantity
+        # Ensure total_cost is calculated before saving
+        price = self.unit_cost_price or 0
+        qty = self.quantity or 0
+        self.total_cost = price * qty
         super().save(*args, **kwargs)
     
     @property
