@@ -55,16 +55,7 @@ SECURE_HSTS_PRELOAD = True
 # CORS SETTINGS
 # ========================
 
-CORS_ALLOWED_ORIGINS = [
-    "https://jwellery-frontend-opal.vercel.app",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-# Allow environment variables to override or extend if needed
-env_origins = [origin for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if origin]
-if env_origins:
-    CORS_ALLOWED_ORIGINS.extend(env_origins)
-
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
