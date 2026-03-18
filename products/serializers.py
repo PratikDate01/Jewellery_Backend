@@ -245,7 +245,7 @@ class PurchaseOrderSerializer(BaseMongoSerializer):
             'quantity', 'unit_cost_price', 'total_cost', 'status', 'amount_paid', 
             'remaining_amount', 'payment_status', 'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'created_at', 'updated_at', 'total_cost')
+        read_only_fields = ('id', 'created_at', 'updated_at')
 
 
 class SupplierPaymentSerializer(BaseMongoSerializer):

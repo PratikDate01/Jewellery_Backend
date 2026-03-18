@@ -186,7 +186,7 @@ class PurchaseOrder(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='purchase_orders')
     quantity = models.PositiveIntegerField()
     unit_cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    total_cost = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -196,10 +196,15 @@ class PurchaseOrder(models.Model):
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
-        # Ensure total_cost is calculated before saving
-        price = self.unit_cost_price or 0
-        qty = self.quantity or 0
-        self.total_cost = price * qty
+        # Calculate unit_cost_price if total_cost is provided and unit_cost_price is not
+        from decimal import Decimal
+        if self.total_cost and not self.unit_cost_price and self.quantity:
+            self.unit_cost_price = Decimal(str(self.total_cost)) / Decimal(str(self.quantity))
+        
+        # Calculate total_cost if unit_cost_price and quantity are provided but total_cost is not or is 0
+        elif (not self.total_cost or float(self.total_cost) == 0) and self.unit_cost_price and self.quantity:
+            self.total_cost = Decimal(str(self.unit_cost_price)) * Decimal(str(self.quantity))
+            
         super().save(*args, **kwargs)
     
     @property

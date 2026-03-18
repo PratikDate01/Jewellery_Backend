@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import F
-from .models import Product, StockLedger, ProductImage, SupplierProduct
+from .models import Product, StockLedger, ProductImage, SupplierProduct, PurchaseOrder
 
 class StockService:
     @staticmethod
