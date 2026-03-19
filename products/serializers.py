@@ -43,8 +43,8 @@ class SupplierProductSerializer(BaseMongoSerializer):
         model = SupplierProduct
         fields = (
             'id', 'supplier', 'name', 'description', 'category', 'category_name', 
-            'metal_type', 'weight', 'gold_weight', 'supplier_price', 'price', 'suggested_retail_price', 
-            'available_stock', 'available_quantity', 'supplier_sku', 'images', 'uploaded_images',
+            'metal_type', 'gold_weight', 'price', 'suggested_retail_price', 
+            'available_quantity', 'supplier_sku', 'images', 'uploaded_images',
             'purity', 'diamond_clarity', 'status', 'admin_notes', 
             'created_at', 'updated_at'
         )
@@ -61,7 +61,7 @@ class SupplierProductSerializer(BaseMongoSerializer):
                     internal_data[key] = data.get(key)
             
             # Clean empty strings for specific fields
-            for field in ['category', 'weight', 'gold_weight', 'supplier_price', 'price', 'suggested_retail_price', 'available_stock', 'available_quantity']:
+            for field in ['category', 'gold_weight', 'price', 'suggested_retail_price', 'available_quantity']:
                 if field in internal_data and (internal_data[field] == '' or internal_data[field] == 'null' or internal_data[field] == 'undefined'):
                     internal_data[field] = None
             

@@ -5,6 +5,7 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     'jewellery-backend-ewfw.onrender.com',
+    '.onrender.com',
     'localhost',
     '127.0.0.1',
 ]
