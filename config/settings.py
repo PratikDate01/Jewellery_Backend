@@ -26,6 +26,7 @@ ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'jewellery-backend-ewfw.onrend
 # ========================
 
 INSTALLED_APPS = [
+    'daphne',
     # Default Django Apps
     'django.contrib.admin',
     'django.contrib.auth',
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Third Party Apps
+    'channels',
     'cloudinary',
     'cloudinary_storage',
     'rest_framework',
@@ -90,6 +92,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 
 # ========================
