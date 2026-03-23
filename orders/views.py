@@ -221,6 +221,85 @@ class OrderViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        order = self.get_object()
+        
+        # Check if user is owner
+        if order.user != request.user and request.user.role != 'ADMIN':
+            return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Check if order can be cancelled
+        if order.status in ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED']:
+            return Response({"detail": f"Order cannot be cancelled in status: {order.status}"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        with transaction.atomic():
+            old_status = order.status
+            order.status = 'CANCELLED'
+            
+            # Professional Refund System logic
+            if order.payment_status == 'PAID':
+                order.payment_status = 'REFUND_PENDING'
+                order.status = 'REFUND_INITIATED'
+                
+                # Update Payment record if it exists
+                if hasattr(order, 'payment'):
+                    payment = order.payment
+                    payment.status = 'REFUNDED' # Or REFUND_PENDING if real-world integration
+                    payment.save()
+            
+            order.save()
+            
+            # Restock items
+            for item in order.items.all():
+                if item.product:
+                    StockService.update_stock(
+                        product_id=item.product.id,
+                        quantity_change=item.quantity,
+                        entry_type='RETURN',
+                        reference_id=f"CANCEL-{order.order_number}"
+                    )
+            
+            # Log status change
+            OrderStatusLog.objects.create(
+                order=order,
+                previous_status=old_status,
+                new_status=order.status,
+                changed_by=request.user,
+                notes=request.data.get('reason', 'Customer cancelled the order')
+            )
+            
+            # Timeline event
+            OrderTimelineEvent.objects.create(
+                order=order,
+                event_type='STATUS_CHANGE',
+                title='Order Cancelled',
+                description=f'Order was cancelled by {request.user.email}. Reason: {request.data.get("reason", "N/A")}',
+                user=request.user
+            )
+            
+            if order.payment_status == 'REFUND_PENDING':
+                OrderTimelineEvent.objects.create(
+                    order=order,
+                    event_type='REFUND_INITIATED',
+                    title='Refund Initiated',
+                    description=f'Refund of {order.net_amount} has been initiated.',
+                    user=request.user
+                )
+
+        return Response(OrderDetailSerializer(order).data)
+
+    @action(detail=True, methods=['delete'])
+    def delete_order(self, request, pk=None):
+        if not request.user.is_authenticated or request.user.role != 'ADMIN':
+            return Response({"detail": "Only admins can delete orders"}, status=status.HTTP_403_FORBIDDEN)
+            
+        order = self.get_object()
+        order_num = order.order_number
+        order.delete()
+        
+        return Response({"detail": f"Order {order_num} has been deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'])
     def approve_action(self, request, pk=None):
         order = self.get_object()
         
@@ -237,14 +316,75 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         if serializer.validated_data['action'] == 'approve':
-            action_obj.status = 'APPROVED'
-            action_obj.approved_by = request.user
-            action_obj.completed_at = timezone.now()
-            action_obj.save()
+            with transaction.atomic():
+                action_obj.status = 'APPROVED'
+                action_obj.approved_by = request.user
+                action_obj.completed_at = timezone.now()
+                action_obj.save()
+                
+                # Perform the actual action logic
+                if action_obj.action_type == 'CANCEL_ORDER':
+                    # Call the cancel logic (reusing same logic)
+                    old_status = order.status
+                    order.status = 'CANCELLED'
+                    
+                    if order.payment_status == 'PAID':
+                        order.payment_status = 'REFUND_PENDING'
+                        order.status = 'REFUND_INITIATED'
+                        if hasattr(order, 'payment'):
+                            payment = order.payment
+                            payment.status = 'REFUNDED'
+                            payment.save()
+                    
+                    order.save()
+                    
+                    # Restock
+                    for item in order.items.all():
+                        if item.product:
+                            StockService.update_stock(
+                                product_id=item.product.id,
+                                quantity_change=item.quantity,
+                                entry_type='RETURN',
+                                reference_id=f"CANCEL-ACTION-{order.order_number}"
+                            )
+                    
+                    OrderTimelineEvent.objects.create(
+                        order=order,
+                        event_type='STATUS_CHANGE',
+                        title='Order Cancelled (Approved)',
+                        description=f'Cancellation request approved by {request.user.email}',
+                        user=request.user
+                    )
+                
+                elif action_obj.action_type == 'REFUND_REQUEST':
+                    order.payment_status = 'REFUND_PENDING'
+                    order.status = 'REFUND_INITIATED'
+                    order.save()
+                    
+                    if hasattr(order, 'payment'):
+                        payment = order.payment
+                        payment.status = 'REFUNDED'
+                        payment.save()
+                        
+                    OrderTimelineEvent.objects.create(
+                        order=order,
+                        event_type='REFUND_INITIATED',
+                        title='Refund Approved',
+                        description=f'Refund request approved by {request.user.email}',
+                        user=request.user
+                    )
         else:
             action_obj.status = 'REJECTED'
             action_obj.rejection_reason = serializer.validated_data.get('rejection_reason', '')
             action_obj.save()
+            
+            OrderTimelineEvent.objects.create(
+                order=order,
+                event_type='ADMIN_NOTE',
+                title=f'Action Rejected: {action_obj.get_action_type_display()}',
+                description=f'Reason: {action_obj.rejection_reason}',
+                user=request.user
+            )
         
         return Response({'status': action_obj.status, 'message': 'Action updated'})
 
