@@ -86,11 +86,14 @@ class CartItemViewSet(viewsets.ModelViewSet):
             serializer.save(cart=cart)
 
     def perform_update(self, serializer):
+        # The quantity is already validated by the serializer's field validation
+        # We just need to check against stock
         product = serializer.instance.product
-        quantity = serializer.validated_data.get('quantity', serializer.instance.quantity)
-
-        if quantity > product.stock_quantity:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError(f"Insufficient stock. Available: {product.stock_quantity}")
+        quantity = serializer.validated_data.get('quantity')
+        
+        if quantity is not None:
+            if quantity > product.stock_quantity:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(f"Insufficient stock. Available: {product.stock_quantity}")
         
         serializer.save()

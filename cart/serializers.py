@@ -5,7 +5,7 @@ from accounts.fields import ObjectIdField
 from accounts.base_serializers import BaseMongoSerializer
 
 class CartItemSerializer(BaseMongoSerializer):
-    id = ObjectIdField(read_only=True)
+    id = ObjectIdField(source='pk', read_only=True)
     product_details = ProductSerializer(source='product', read_only=True)
     subtotal = serializers.ReadOnlyField()
 
