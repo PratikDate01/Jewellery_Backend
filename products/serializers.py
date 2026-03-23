@@ -39,13 +39,16 @@ class SupplierProductSerializer(BaseMongoSerializer):
         required=False
     )
 
+    metal_type_display = serializers.CharField(source='get_metal_type_display', read_only=True)
+    purity_display = serializers.CharField(source='get_purity_display', read_only=True)
+    
     class Meta:
         model = SupplierProduct
         fields = (
             'id', 'supplier', 'name', 'description', 'category', 'category_name', 
-            'metal_type', 'gold_weight', 'price', 'suggested_retail_price', 
+            'metal_type', 'metal_type_display', 'gold_weight', 'price', 'suggested_retail_price', 
             'available_quantity', 'supplier_sku', 'images', 'uploaded_images',
-            'purity', 'diamond_clarity', 'status', 'admin_notes', 
+            'purity', 'purity_display', 'diamond_clarity', 'status', 'admin_notes', 
             'created_at', 'updated_at'
         )
         read_only_fields = ('supplier', 'created_at', 'updated_at', 'status', 'admin_notes')
@@ -106,13 +109,16 @@ class ProductSerializer(BaseMongoSerializer):
         required=False
     )
 
+    metal_type_display = serializers.CharField(source='get_metal_type_display', read_only=True)
+    purity_display = serializers.CharField(source='get_purity_display', read_only=True)
+    
     class Meta:
         model = Product
         fields = (
             'id', 'name', 'slug', 'description', 'price', 'available_quantity', 
             'is_active', 'sku', 'category', 'category_name', 'images', 
-            'uploaded_images', 'keep_images', 'metal_type', 'weight',
-            'purity', 'diamond_clarity', 'cost_price', 'selling_price',
+            'uploaded_images', 'keep_images', 'metal_type', 'metal_type_display', 'weight',
+            'purity', 'purity_display', 'diamond_clarity', 'cost_price', 'selling_price',
             'retail_price', 'making_charges', 'gst_percentage',
             'is_featured', 'is_approved', 'created_at', 'updated_at', 'supplier_name'
         )
@@ -271,13 +277,16 @@ class ProductDetailSerializer(BaseMongoSerializer):
     margin_percentage = serializers.SerializerMethodField()
     price = serializers.DecimalField(source='selling_price', max_digits=12, decimal_places=2, read_only=True)
     
+    metal_type_display = serializers.CharField(source='get_metal_type_display', read_only=True)
+    purity_display = serializers.CharField(source='get_purity_display', read_only=True)
+    
     class Meta:
         model = Product
         fields = (
             'id', 'name', 'slug', 'description', 'price', 'cost_price', 'selling_price', 
             'retail_price', 'making_charges', 'gst_percentage',
             'margin', 'margin_percentage', 'stock_quantity', 'sku', 'category', 
-            'category_name', 'images', 'metal_type', 'weight', 'purity', 'diamond_clarity', 
+            'category_name', 'images', 'metal_type', 'metal_type_display', 'weight', 'purity', 'purity_display', 'diamond_clarity', 
             'is_featured', 'is_approved', 'supplier_user', 'supplier_email',
             'created_at', 'updated_at'
         )
