@@ -276,4 +276,4 @@ This project is licensed under the ISC License.
 
 ---
 
-Made with ❤️ by the Jewellery Team
+Made with ❤️ by the By Pratik Date
