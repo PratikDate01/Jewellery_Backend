@@ -86,6 +86,7 @@ class ProductService:
         product = Product.objects.filter(supplier_product=supplier_product).first()
         created = False
         
+        initial_stock = supplier_product.available_stock if supplier_product.available_stock > 0 else 5
         if not product:
             product = Product(
                 supplier_product=supplier_product,
@@ -97,13 +98,13 @@ class ProductService:
                 cost_price=supplier_product.supplier_price,
                 selling_price=selling_price,
                 retail_price=supplier_product.suggested_retail_price,
-                stock_quantity=0, 
+                stock_quantity=initial_stock, 
                 purity=supplier_product.purity,
                 diamond_clarity=supplier_product.diamond_clarity,
                 supplier_user=supplier_product.supplier,
                 supplier=supplier_profile,
                 is_approved=True,
-                is_available_for_sale=False
+                is_available_for_sale=True
             )
             product.save()
             created = True
@@ -122,6 +123,9 @@ class ProductService:
             product.supplier_user = supplier_product.supplier
             product.supplier = supplier_profile
             product.is_approved = True
+            if product.stock_quantity <= 0:
+                product.stock_quantity = initial_stock
+            product.is_available_for_sale = True if product.stock_quantity > 0 else False
             product.save()
 
         # Update status only after successful product creation/update

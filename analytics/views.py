@@ -127,12 +127,15 @@ class UnifiedDashboardView(APIView):
         user = request.user
         supplier_products = SupplierProduct.objects.filter(supplier=user)
         purchase_orders = PurchaseOrder.objects.filter(supplier=user)
+        supplier_profile = Supplier.objects.filter(user=user).first()
+        is_verified = supplier_profile.is_verified if supplier_profile else False
         
         total_rev = purchase_orders.aggregate(Sum('total_cost'))['total_cost__sum'] or 0
         paid_amt = SupplierPayment.objects.filter(purchase_order__supplier=user).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
         
         return Response({
             'role': 'SUPPLIER',
+            'is_verified': is_verified,
             'stats': {
                 'total_products': supplier_products.count(),
                 'approved_products': supplier_products.filter(status='APPROVED').count(),

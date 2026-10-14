@@ -15,6 +15,8 @@ class EmailBackend(ModelBackend):
         if not email or not password:
             return None
             
+        email = str(email).strip()
+            
         try:
             # Check for user by email (case-insensitive)
             user = User.objects.get(email__iexact=email)

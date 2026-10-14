@@ -63,6 +63,7 @@ class LoginSerializer(serializers.Serializer):
         if not email or not password:
             raise serializers.ValidationError("Email and password are required.")
 
+        email = email.strip()
         backend = EmailBackend()
         user = backend.authenticate(request=None, email=email, password=password)
 

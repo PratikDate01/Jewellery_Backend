@@ -19,7 +19,11 @@ class ProductImageSerializer(BaseMongoSerializer):
 
     def get_image(self, obj):
         if obj.image:
-            return obj.image.url
+            url = getattr(obj.image, 'url', str(obj.image))
+            if url:
+                if not any(url.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg']):
+                    url = f"{url}.jpg"
+                return url
         return None
 
 class SupplierProductSerializer(BaseMongoSerializer):

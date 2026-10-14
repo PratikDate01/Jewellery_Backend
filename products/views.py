@@ -12,7 +12,7 @@ from .serializers import (
     StockLedgerSerializer, SupplierPaymentSerializer
 )
 from .permissions import (
-    IsAdmin, IsSupplier, IsCustomer, IsSupplierOwner,
+    IsAdmin, IsSupplier, IsCustomer, IsSupplierOwner, IsSupplierOrAdmin,
     CanApproveProduct, CanCreatePurchaseOrder, CanPlaceOrder
 )
 from suppliers.models import Supplier
@@ -29,7 +29,7 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'my_products']:
-            return [IsSupplier()]
+            return [IsSupplierOrAdmin()]
         elif self.action in ['approve', 'reject']:
             return [IsAdmin()]
         return [permissions.IsAuthenticated()]
@@ -60,7 +60,9 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
                 user=self.request.user,
                 defaults={
                     'company_name': f"Admin Store ({self.request.user.name or self.request.user.email})",
-                    'is_verified': True
+                    'is_verified': True,
+                    'gst_number': None,
+                    'pan_number': None,
                 }
             )
             serializer.save(supplier=self.request.user)
@@ -69,7 +71,11 @@ class SupplierProductViewSet(viewsets.ModelViewSet):
         # For normal suppliers, ensure they have a profile and are verified
         supplier_profile, created = Supplier.objects.get_or_create(
             user=self.request.user,
-            defaults={'company_name': self.request.user.name or self.request.user.email}
+            defaults={
+                'company_name': self.request.user.name or self.request.user.email,
+                'gst_number': None,
+                'pan_number': None,
+            }
         )
         
         if not supplier_profile.is_verified:
@@ -162,7 +168,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             elif self.request.user.role == 'SUPPLIER':
                 return base_queryset.filter(supplier_user_id=self.request.user.id)
             elif self.request.user.role == 'CUSTOMER':
+                if self.action == 'retrieve':
+                    return base_queryset.filter(is_approved=True)
                 return base_queryset.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0)
+        
+        if self.action == 'retrieve':
+            return base_queryset.filter(is_approved=True)
         return base_queryset.filter(is_approved=True, is_available_for_sale=True, stock_quantity__gt=0)
     
     def get_serializer_class(self):

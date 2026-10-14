@@ -144,6 +144,11 @@ class Product(models.Model):
             import uuid
             self.sku = f"SKU-{uuid.uuid4().hex[:12].upper()}"
             
+        if self.stock_quantity > 0 and self.is_approved:
+            self.is_available_for_sale = True
+        elif self.stock_quantity <= 0:
+            self.is_available_for_sale = False
+
         super().save(*args, **kwargs)
     
     @property

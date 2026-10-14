@@ -42,7 +42,9 @@ class SupplierProfileViewSet(viewsets.ModelViewSet):
         if not profile:
             profile = Supplier.objects.create(
                 user=self.request.user,
-                company_name=self.request.user.name or self.request.user.email
+                company_name=self.request.user.name or self.request.user.email,
+                gst_number=None,
+                pan_number=None
             )
         return profile
 
@@ -58,7 +60,14 @@ class SupplierProfileViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def my_profile(self, request):
-        profile, created = Supplier.objects.get_or_create(user=request.user)
+        profile = Supplier.objects.filter(user=request.user).first()
+        if not profile:
+            profile = Supplier.objects.create(
+                user=request.user,
+                company_name=request.user.name or request.user.email,
+                gst_number=None,
+                pan_number=None
+            )
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
 
